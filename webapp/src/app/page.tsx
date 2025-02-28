@@ -2,7 +2,6 @@
 
 import { motion } from 'framer-motion'
 import { Heading, Lead } from '@/components/ui/text'
-import { Button } from '@/components/ui/button'
 import { Divider } from '@/components/ui/divider'
 
 export default function Home() {
