@@ -161,7 +161,7 @@ echo "Setting up Vercel..."
 
 # Link to Vercel project directly specifying webapp as the root directory
 echo "Linking to Vercel project with webapp as root directory..."
-vercel webapp --project "$PROJECT_NAME" --yes
+vercel link --project "$PROJECT_NAME"
 vercel git connect
 
 # Set up Doppler project and populate with secrets from template
