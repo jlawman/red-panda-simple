@@ -62,7 +62,7 @@ websites=(
 test_doppler() {
     echo "Testing Doppler functionality..."
     if command -v doppler &> /dev/null; then
-        echo "Doppler is installed."
+        echo "✅ Doppler is installed."
         
         # Test project creation
         TEST_PROJECT="test-doppler-project-$$"
@@ -71,21 +71,27 @@ test_doppler() {
         
         # Test secrets operations
         echo "Testing secrets operations..."
-        echo '{"TEST_KEY":"test_value"}' > /tmp/test_secrets.json
-        doppler secrets upload /tmp/test_secrets.json --project "$TEST_PROJECT" --config dev
+        echo '{"TEST_KEY":"test_value"}' > "/tmp/test_secrets_$$.json"
+        
+        # Import secrets to test project
+        doppler secrets import --project "$TEST_PROJECT" --config dev "/tmp/test_secrets_$$.json"
         
         # Verify secrets
         echo "Verifying secrets..."
         doppler secrets get TEST_KEY --project "$TEST_PROJECT" --config dev
         
+        # Show configuration
+        echo "Current Doppler configuration:"
+        doppler configure
+        
         # Clean up
         echo "Cleaning up test project..."
         doppler projects delete "$TEST_PROJECT" --yes
-        rm /tmp/test_secrets.json
+        rm "/tmp/test_secrets_$$.json"
         
-        echo "Doppler test completed successfully."
+        echo "✅ Doppler test completed successfully."
     else
-        echo "Doppler CLI not found. Please install Doppler CLI."
+        echo "❌ Doppler CLI not found. Please install Doppler CLI."
         echo "Visit https://docs.doppler.com/docs/install-cli for installation instructions."
     fi
 }
@@ -122,7 +128,7 @@ fi
 get_project_name "$1"
 
 # Set variables
-BASE_DIR="$HOME/Documents/adder/100 prototypes"
+BASE_DIR="$HOME/Documents/adder/100-concepts"
 FULL_PATH="$BASE_DIR"/$PROJECT_NAME
 TEMPLATE="jlawman/red-panda-simple"
 
@@ -153,7 +159,7 @@ echo ""
 cd "$FULL_PATH" || exit
 echo "Setting up Vercel..."
 # Automate Vercel setup with predefined answers
-echo "y" | vercel link --project "$PROJECT_NAME" --confirm
+echo "y" | vercel link --project "$PROJECT_NAME" --yes
 # Or more comprehensively:
 # echo -e "y\nJosh Lawman's projects\nno\n$PROJECT_NAME\n./webapp" | vercel link
 vercel git connect
@@ -165,28 +171,71 @@ if command -v doppler &> /dev/null; then
     # Create a new Doppler project
     doppler projects create "$PROJECT_NAME"
     
-    # Clone secrets from template project (replace TEMPLATE_PROJECT with your template project name)
+    # Clone secrets from template project
     TEMPLATE_PROJECT="red-panda-simple"
     echo "Copying secrets from $TEMPLATE_PROJECT to $PROJECT_NAME..."
     
-    # Export secrets from template project
-    TEMP_SECRETS_FILE="/tmp/doppler_secrets_$$.json"
-    doppler secrets download --project "$TEMPLATE_PROJECT" --config dev --format json > "$TEMP_SECRETS_FILE"
+    # Export secrets from template project - using a better approach
+    echo "Fetching secrets from template project..."
+    # Get all secrets from the template project
+    SECRETS=$(doppler secrets get --project "$TEMPLATE_PROJECT" --config dev --json)
     
-    # Import secrets to new project
-    doppler secrets upload "$TEMP_SECRETS_FILE" --project "$PROJECT_NAME" --config dev
-    
-    # Clean up temporary file
-    rm "$TEMP_SECRETS_FILE"
-    
-    # Set up Doppler in the project directory
-    cd "$FULL_PATH" || exit
-    doppler setup --project "$PROJECT_NAME" --config dev
-    
-    echo "Doppler project setup complete with secrets from template."
+    if [ $? -eq 0 ]; then
+        # Create a proper JSON file for upload
+        echo "$SECRETS" > "/tmp/doppler_secrets_$$.json"
+        
+        # Import secrets to new project
+        echo "Importing secrets to new project..."
+        doppler secrets import --project "$PROJECT_NAME" --config dev "/tmp/doppler_secrets_$$.json"
+        
+        # Clean up temporary file
+        rm "/tmp/doppler_secrets_$$.json"
+        
+        # Set up Doppler in the project directory
+        cd "$FULL_PATH" || exit
+        echo "Configuring Doppler in project directory..."
+        doppler setup --project "$PROJECT_NAME" --config dev
+        
+        # Verify setup was successful
+        echo "Verifying Doppler setup..."
+        SETUP_INFO=$(doppler configure)
+        echo "$SETUP_INFO"
+        
+        echo "✅ Doppler project setup complete."
+    else
+        echo "❌ Failed to fetch secrets from template project. Please check if the template project exists and you have access to it."
+    fi
 else
     echo "Doppler CLI not found. Please install Doppler CLI to set up secrets management."
     echo "Visit https://docs.doppler.com/docs/install-cli for installation instructions."
+fi
+
+# Set up Fathom Analytics site and add to Doppler
+echo "Setting up Fathom Analytics site..."
+if [ -f "./fathom-setup.sh" ]; then
+    # Source the Fathom setup script to use its functions
+    source ./fathom-setup.sh
+    
+    # Get Fathom API token
+    FATHOM_API_TOKEN=$(get_fathom_token)
+    
+    # Create Fathom site
+    site_id_output=$(create_fathom_site "$PROJECT_NAME" "$FATHOM_API_TOKEN")
+    create_result=$?
+    
+    if [ $create_result -eq 0 ]; then
+        # Extract the site ID from the last line of output
+        SITE_ID=$(echo "$site_id_output" | tail -n 1)
+        
+        # Add site ID to Doppler
+        add_to_doppler "$PROJECT_NAME" "$SITE_ID" "$FATHOM_API_TOKEN"
+        
+        echo "✅ Fathom Analytics setup complete."
+    else
+        echo "❌ Failed to create Fathom Analytics site."
+    fi
+else
+    echo "❌ Fathom setup script not found. Please ensure fathom-setup.sh is in the same directory."
 fi
 
 # Install npm dependencies in the app folder
