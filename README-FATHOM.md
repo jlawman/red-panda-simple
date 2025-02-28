@@ -94,4 +94,25 @@ Once the integration is complete, you can use Fathom Analytics in your Next.js a
 
 - If you encounter issues with the Fathom API, check that your API token has the correct permissions.
 - Make sure your Doppler CLI is properly configured.
-- If the site ID is not being added to Doppler, check the output of the script for error messages. 
+- If the site ID is not being added to Doppler, check the output of the script for error messages.
+
+### Common Issues and Solutions
+
+1. **Doppler Secrets Import Failing**: The script now uses `doppler secrets set` instead of `doppler secrets upload` or `import` for better compatibility with different Doppler CLI versions.
+
+2. **Vercel Project Configuration**: A `vercel.json` file is now automatically created to specify the webapp directory and Next.js framework, eliminating the need for manual configuration during setup.
+
+3. **Missing Environment Variables**: If you're not seeing environment variables in your Doppler project, you can manually set them using:
+   ```bash
+   doppler secrets set NEXT_PUBLIC_FATHOM_SITE_ID=your_site_id --project your_project_name --config dev
+   ```
+
+4. **Fathom API Token**: The script now checks if the FATHOM_API_TOKEN environment variable is set and provides options:
+   - Set it before running the script:
+     ```bash
+     export FATHOM_API_TOKEN=your_fathom_api_token
+     ```
+   - Enter it interactively when prompted
+   - Skip Fathom integration entirely
+
+5. **Doppler Secrets Copying**: The script now copies all secrets from the red-panda-simple template project to your new project, ensuring all necessary configuration is transferred. 

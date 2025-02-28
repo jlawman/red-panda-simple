@@ -158,12 +158,24 @@ echo ""
 
 cd "$FULL_PATH" || exit
 echo "Setting up Vercel..."
-# Automate Vercel setup with predefined answers
-echo "y" | vercel link --project "$PROJECT_NAME" --yes
-# Or more comprehensively:
-# echo -e "y\nJosh Lawman's projects\nno\n$PROJECT_NAME\n./webapp" | vercel link
+
+# Create a vercel.json file to specify the webapp directory
+cat > "$FULL_PATH/vercel.json" << EOF
+{
+  "buildCommand": "cd webapp && npm run build",
+  "devCommand": "cd webapp && npm run dev",
+  "installCommand": "cd webapp && npm install",
+  "outputDirectory": "webapp/.next",
+  "framework": "nextjs"
+}
+EOF
+
+echo "Created vercel.json to specify webapp directory and Next.js framework"
+
+# Link to Vercel project
+echo "Linking to Vercel project..."
+vercel link --project "$PROJECT_NAME" --yes
 vercel git connect
-#vercel deploy --yes
 
 # Set up Doppler project and populate with secrets from template
 echo "Setting up Doppler project..."
@@ -175,21 +187,28 @@ if command -v doppler &> /dev/null; then
     TEMPLATE_PROJECT="red-panda-simple"
     echo "Copying secrets from $TEMPLATE_PROJECT to $PROJECT_NAME..."
     
-    # Export secrets from template project - using a better approach
-    echo "Fetching secrets from template project..."
     # Get all secrets from the template project
-    SECRETS=$(doppler secrets get --project "$TEMPLATE_PROJECT" --config dev --json)
+    echo "Fetching all secrets from template project..."
     
-    if [ $? -eq 0 ]; then
-        # Create a proper JSON file for upload
-        echo "$SECRETS" > "/tmp/doppler_secrets_$$.json"
-        
-        # Import secrets to new project
-        echo "Importing secrets to new project..."
-        doppler secrets import --project "$PROJECT_NAME" --config dev "/tmp/doppler_secrets_$$.json"
-        
-        # Clean up temporary file
-        rm "/tmp/doppler_secrets_$$.json"
+    # Get a list of all secret names from the template project
+    SECRET_NAMES=$(doppler secrets --project "$TEMPLATE_PROJECT" --config dev --only-names 2>/dev/null)
+    
+    if [ $? -eq 0 ] && [ -n "$SECRET_NAMES" ]; then
+        # Copy each secret one by one
+        echo "$SECRET_NAMES" | while read -r SECRET_NAME; do
+            if [ -n "$SECRET_NAME" ]; then
+                # Get the secret value from the template project
+                SECRET_VALUE=$(doppler secrets get "$SECRET_NAME" --project "$TEMPLATE_PROJECT" --config dev --plain 2>/dev/null)
+                
+                # If the secret exists and has a value, set it in the new project
+                if [ -n "$SECRET_VALUE" ]; then
+                    echo "Setting $SECRET_NAME..."
+                    doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config dev
+                    doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config staging
+                    doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config prod
+                fi
+            fi
+        done
         
         # Set up Doppler in the project directory
         cd "$FULL_PATH" || exit
@@ -213,26 +232,29 @@ fi
 # Set up Fathom Analytics site and add to Doppler
 echo "Setting up Fathom Analytics site..."
 if [ -f "./fathom-setup.sh" ]; then
-    # Source the Fathom setup script to use its functions
-    source ./fathom-setup.sh
-    
-    # Get Fathom API token
-    FATHOM_API_TOKEN=$(get_fathom_token)
-    
-    # Create Fathom site
-    site_id_output=$(create_fathom_site "$PROJECT_NAME" "$FATHOM_API_TOKEN")
-    create_result=$?
-    
-    if [ $create_result -eq 0 ]; then
-        # Extract the site ID from the last line of output
-        SITE_ID=$(echo "$site_id_output" | tail -n 1)
-        
-        # Add site ID to Doppler
-        add_to_doppler "$PROJECT_NAME" "$SITE_ID" "$FATHOM_API_TOKEN"
-        
-        echo "✅ Fathom Analytics setup complete."
+    # Check if FATHOM_API_TOKEN is set
+    if [ -z "$FATHOM_API_TOKEN" ]; then
+        echo "⚠️ FATHOM_API_TOKEN environment variable is not set."
+        echo "Skipping Fathom Analytics setup."
     else
-        echo "❌ Failed to create Fathom Analytics site."
+        # Source the Fathom setup script to use its functions
+        source ./fathom-setup.sh
+        
+        # Create Fathom site
+        site_id_output=$(create_fathom_site "$PROJECT_NAME" "$FATHOM_API_TOKEN")
+        create_result=$?
+        
+        if [ $create_result -eq 0 ]; then
+            # Extract the site ID from the last line of output
+            SITE_ID=$(echo "$site_id_output" | tail -n 1)
+            
+            # Add site ID to Doppler
+            add_to_doppler "$PROJECT_NAME" "$SITE_ID" "$FATHOM_API_TOKEN"
+            
+            echo "✅ Fathom Analytics setup complete."
+        else
+            echo "❌ Failed to create Fathom Analytics site."
+        fi
     fi
 else
     echo "❌ Fathom setup script not found. Please ensure fathom-setup.sh is in the same directory."

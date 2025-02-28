@@ -11,8 +11,9 @@ command_exists() {
 # Function to prompt for input if not provided
 get_project_name() {
   if [ -z "$1" ]; then
-    echo "Enter a project name:"
-    read PROJECT_NAME
+    # Instead of prompting, use a default name or exit
+    echo "Error: Project name is required. Usage: ./fathom-setup.sh <project-name>"
+    exit 1
   else
     PROJECT_NAME="$1"
   fi
@@ -22,9 +23,27 @@ get_project_name() {
 # Function to get Fathom API token
 get_fathom_token() {
   if [ -z "$FATHOM_API_TOKEN" ]; then
-    echo "Enter your Fathom API token (from https://app.usefathom.com/api):"
-    read -s FATHOM_API_TOKEN
-    echo ""
+    echo "⚠️ FATHOM_API_TOKEN environment variable is not set."
+    echo "Please set it before running this script:"
+    echo "export FATHOM_API_TOKEN=your_token_here"
+    
+    # Ask if the user wants to enter the token now
+    read -p "Do you want to enter your Fathom API token now? (y/n): " enter_token
+    
+    if [[ "$enter_token" == "y" || "$enter_token" == "Y" ]]; then
+      read -p "Enter your Fathom API token: " input_token
+      if [ -n "$input_token" ]; then
+        export FATHOM_API_TOKEN="$input_token"
+        echo "$FATHOM_API_TOKEN"
+        return 0
+      else
+        echo "No token provided. Exiting."
+        exit 1
+      fi
+    else
+      echo "Exiting. Please set FATHOM_API_TOKEN and try again."
+      exit 1
+    fi
   fi
   echo "$FATHOM_API_TOKEN"
 }
@@ -66,14 +85,15 @@ add_to_doppler() {
   echo "Adding Fathom site ID to Doppler project: $project_name"
   
   if command_exists doppler; then
-    # Create JSON file with Fathom variables
-    echo "{\"NEXT_PUBLIC_FATHOM_SITE_ID\":\"$site_id\",\"FATHOM_API_TOKEN\":\"$api_token\"}" > "/tmp/fathom_secrets_$$.json"
+    # Use doppler secrets set instead of upload
+    echo "Setting secrets in dev environment..."
+    doppler secrets set NEXT_PUBLIC_FATHOM_SITE_ID="$site_id" FATHOM_API_TOKEN="$api_token" --project "$project_name" --config dev
     
-    # Import secrets to Doppler project
-    doppler secrets import --project "$project_name" --config dev "/tmp/fathom_secrets_$$.json"
+    echo "Setting secrets in staging environment..."
+    doppler secrets set NEXT_PUBLIC_FATHOM_SITE_ID="$site_id" FATHOM_API_TOKEN="$api_token" --project "$project_name" --config staging
     
-    # Clean up temporary file
-    rm "/tmp/fathom_secrets_$$.json"
+    echo "Setting secrets in prod environment..."
+    doppler secrets set NEXT_PUBLIC_FATHOM_SITE_ID="$site_id" FATHOM_API_TOKEN="$api_token" --project "$project_name" --config prod
     
     echo "✅ Fathom variables added to Doppler project"
     return 0
