@@ -1,0 +1,12 @@
+prompt: |
+  ${userInput}
+
+  Given these brand answers can you describe 3 different logo options for them (include specifics). The logo shouldn't include any text. We'll be using these descriptions for image creation tools
+
+  They should be in the following format:
+  <description1>
+  </description1>
+  <description2>
+  </description2>
+  <description3>
+  </description3>

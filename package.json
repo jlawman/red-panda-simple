@@ -1,0 +1,23 @@
+{
+  "devDependencies": {
+    "@types/node": "22.7.5",
+    "@types/react": "18.3.11",
+    "@types/react-datepicker": "^7.0.0",
+    "@types/uuid": "^10.0.0",
+    "drizzle-kit": "^0.26.2",
+    "tsx": "^4.19.1",
+    "typescript": "5.6.3"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.1",
+    "csv-parse": "^5.6.0",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.35.2",
+    "framer-motion": "^12.0.6",
+    "lucide-react": "^0.474.0",
+    "react-datepicker": "^7.6.0",
+    "react-markdown": "^9.0.3",
+    "rss-parser": "^3.13.0",
+    "uuid": "^11.0.5"
+  }
+}
