@@ -138,7 +138,7 @@ create_fathom_site() {
   
   # Get the directory where this script is located
   local SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-  local CREATE_SCRIPT="$SCRIPT_DIR/setup/create-fathom-site.sh"
+  local CREATE_SCRIPT="$SCRIPT_DIR/create-fathom-site.sh"
   
   # Call the create-fathom-site.sh script with the formatted name
   if [ -f "$CREATE_SCRIPT" ]; then
