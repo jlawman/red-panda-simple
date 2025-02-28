@@ -159,22 +159,9 @@ echo ""
 cd "$FULL_PATH" || exit
 echo "Setting up Vercel..."
 
-# Create a vercel.json file to specify the webapp directory
-cat > "$FULL_PATH/vercel.json" << EOF
-{
-  "buildCommand": "cd webapp && npm run build",
-  "devCommand": "cd webapp && npm run dev",
-  "installCommand": "cd webapp && npm install",
-  "outputDirectory": "webapp/.next",
-  "framework": "nextjs"
-}
-EOF
-
-echo "Created vercel.json to specify webapp directory and Next.js framework"
-
-# Link to Vercel project
-echo "Linking to Vercel project..."
-vercel link --project "$PROJECT_NAME" --yes
+# Link to Vercel project directly specifying webapp as the root directory
+echo "Linking to Vercel project with webapp as root directory..."
+vercel webapp --project "$PROJECT_NAME" --yes
 vercel git connect
 
 # Set up Doppler project and populate with secrets from template
@@ -229,35 +216,53 @@ else
     echo "Visit https://docs.doppler.com/docs/install-cli for installation instructions."
 fi
 
-# Set up Fathom Analytics site and add to Doppler
-echo "Setting up Fathom Analytics site..."
-if [ -f "./fathom-setup.sh" ]; then
-    # Check if FATHOM_API_TOKEN is set
-    if [ -z "$FATHOM_API_TOKEN" ]; then
-        echo "⚠️ FATHOM_API_TOKEN environment variable is not set."
-        echo "Skipping Fathom Analytics setup."
-    else
-        # Source the Fathom setup script to use its functions
-        source ./fathom-setup.sh
-        
-        # Create Fathom site
-        site_id_output=$(create_fathom_site "$PROJECT_NAME" "$FATHOM_API_TOKEN")
-        create_result=$?
-        
-        if [ $create_result -eq 0 ]; then
-            # Extract the site ID from the last line of output
-            SITE_ID=$(echo "$site_id_output" | tail -n 1)
-            
-            # Add site ID to Doppler
-            add_to_doppler "$PROJECT_NAME" "$SITE_ID" "$FATHOM_API_TOKEN"
-            
-            echo "✅ Fathom Analytics setup complete."
+# Ask if user wants to track analytics
+echo ""
+echo "╔════════════════════════════════════════════════════════════════╗"
+echo "║                    📊 ANALYTICS SETUP 📊                       ║"
+echo "╠════════════════════════════════════════════════════════════════╣"
+echo "║                                                                ║"
+echo "║  Would you like to set up Fathom Analytics for this project?   ║"
+echo "║  This will create a Fathom site and add the site ID to Doppler ║"
+echo "║                                                                ║"
+echo "╚════════════════════════════════════════════════════════════════╝"
+echo ""
+read -p "Set up analytics? (Y/n): " setup_analytics
+setup_analytics=${setup_analytics:-Y}  # Default to Y if empty
+
+# Set up Fathom Analytics site and add to Doppler if user wants to
+if [[ "$setup_analytics" =~ ^[Yy]$ ]]; then
+    echo "Setting up Fathom Analytics site..."
+    if [ -f "./fathom-setup.sh" ]; then
+        # Check if FATHOM_API_TOKEN is set
+        if [ -z "$FATHOM_API_TOKEN" ]; then
+            echo "⚠️ FATHOM_API_TOKEN environment variable is not set."
+            echo "Skipping Fathom Analytics setup."
         else
-            echo "❌ Failed to create Fathom Analytics site."
+            # Source the Fathom setup script to use its functions
+            source ./fathom-setup.sh
+            
+            # Create Fathom site
+            site_id_output=$(create_fathom_site "$PROJECT_NAME" "$FATHOM_API_TOKEN")
+            create_result=$?
+            
+            if [ $create_result -eq 0 ]; then
+                # Extract the site ID from the last line of output
+                SITE_ID=$(echo "$site_id_output" | tail -n 1)
+                
+                # Add site ID to Doppler
+                add_to_doppler "$PROJECT_NAME" "$SITE_ID" "$FATHOM_API_TOKEN"
+                
+                echo "✅ Fathom Analytics setup complete."
+            else
+                echo "❌ Failed to create Fathom Analytics site."
+            fi
         fi
+    else
+        echo "❌ Fathom setup script not found. Please ensure fathom-setup.sh is in the same directory."
     fi
 else
-    echo "❌ Fathom setup script not found. Please ensure fathom-setup.sh is in the same directory."
+    echo "Skipping Fathom Analytics setup as requested."
 fi
 
 # Install npm dependencies in the app folder
