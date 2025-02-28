@@ -114,10 +114,25 @@ copy_doppler_secrets() {
         if [ $? -eq 0 ] && [ -s "$TEMP_FILE" ]; then
             log_info "Setting secrets in $CONFIG environment of target project..."
             
-            # Import the JSON directly to the target project
-            doppler secrets upload --project "$TARGET_PROJECT" --config "$CONFIG" "$TEMP_FILE" | grep -v "VALUE" | sed -E 's/│ ([A-Z_]+[A-Z0-9_]*) +│ (.{4}).*(.{4}) +│/│ \1 │ \2****\3 │/g'
+            # Import the JSON directly to the target project but suppress the output
+            doppler secrets upload --project "$TARGET_PROJECT" --config "$CONFIG" "$TEMP_FILE" > /dev/null
             
             if [ $? -eq 0 ]; then
+                # Get just the names of the secrets that were copied, excluding Doppler's internal variables
+                SECRET_NAMES=$(jq -r 'keys[] | select(startswith("DOPPLER_") | not)' "$TEMP_FILE" | sort)
+                SECRET_COUNT=$(echo "$SECRET_NAMES" | wc -l | tr -d ' ')
+                
+                echo -e "\n${CYAN}${BOLD}┌─────────────────────────────────────────────┐${RESET}"
+                echo -e "${CYAN}${BOLD}│ ${RESET}${GREEN}✓${RESET} Copied ${BOLD}$SECRET_COUNT${RESET} secrets to ${BOLD}$CONFIG${RESET} environment ${CYAN}${BOLD}│${RESET}"
+                echo -e "${CYAN}${BOLD}└─────────────────────────────────────────────┘${RESET}\n"
+                
+                # Only show the API keys and other important secrets (no categorization)
+                echo -e "${CYAN}${BOLD}SECRETS:${RESET}"
+                echo "$SECRET_NAMES" | while read -r SECRET_NAME; do
+                    echo -e "  ${YELLOW}•${RESET} ${BOLD}$SECRET_NAME${RESET}"
+                done
+                
+                echo ""  # Add a blank line for spacing
                 log_success "Successfully copied secrets to $CONFIG environment."
                 ((success_count++))
             else
