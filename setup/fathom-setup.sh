@@ -136,10 +136,15 @@ create_fathom_site() {
   echo "🔹 From Project: \"$project_name\""
   echo ""
   
+  # Get the directory where this script is located
+  local SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  local CREATE_SCRIPT="$SCRIPT_DIR/setup/create-fathom-site.sh"
+  
   # Call the create-fathom-site.sh script with the formatted name
-  if [ -f "./create-fathom-site.sh" ]; then
+  if [ -f "$CREATE_SCRIPT" ]; then
+    echo "📄 Using create-fathom-site.sh script: $CREATE_SCRIPT"
     # Run the script and capture the raw output
-    raw_site_id=$(./create-fathom-site.sh "$formatted_name")
+    raw_site_id=$("$CREATE_SCRIPT" "$formatted_name")
     
     # Check if we got a valid site ID (should be alphanumeric)
     if [[ $raw_site_id =~ ^[A-Z0-9]+$ ]]; then
@@ -158,7 +163,8 @@ create_fathom_site() {
     fi
   else
     echo ""
-    echo "❌ ERROR: create-fathom-site.sh script not found in current directory"
+    echo "❌ ERROR: create-fathom-site.sh script not found at $CREATE_SCRIPT"
+    echo "   Please ensure create-fathom-site.sh is in the same directory as this script."
     echo ""
     return 1
   fi

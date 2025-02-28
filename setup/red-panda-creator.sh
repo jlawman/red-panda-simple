@@ -6,17 +6,42 @@ source "$SCRIPT_DIR/utils/logging.sh"
 source "$SCRIPT_DIR/utils/browser.sh"
 source "$SCRIPT_DIR/utils/doppler-utils.sh"
 
+# Initialize skip flags
+SKIP_GITHUB=false
+SKIP_VERCEL=false
+SKIP_WEBSITES=false
+
+# Parse command line arguments
+for arg in "$@"; do
+  if [[ "$arg" == "--skip" ]]; then
+    SKIP_GITHUB=true
+    SKIP_VERCEL=true
+    SKIP_WEBSITES=true
+    log_info "Skipping GitHub, Vercel setup, and website opening as requested"
+  elif [[ "$arg" == "--skip-github" ]]; then
+    SKIP_GITHUB=true
+    log_info "Skipping GitHub setup as requested"
+  elif [[ "$arg" == "--skip-vercel" ]]; then
+    SKIP_VERCEL=true
+    log_info "Skipping Vercel setup as requested"
+  elif [[ "$arg" == "--skip-websites" ]]; then
+    SKIP_WEBSITES=true
+    log_info "Skipping website opening as requested"
+  fi
+done
+
 # Function to prompt for input if not provided
 get_project_name() {
     while true; do
-        if [ -z "$1" ]; then
+        if [ -z "$1" ] || [[ "$1" == --* ]]; then
             log_info "Enter a project name:"
             read PROJECT_NAME
         else
             PROJECT_NAME="$1"
         fi
 
-        if gh repo view "jlawman/$PROJECT_NAME" &>/dev/null; then
+        # Only check for existing repo if we're not skipping GitHub
+        if [ "$SKIP_GITHUB" = false ] && gh repo view "jlawman/$PROJECT_NAME" &>/dev/null; then
             log_error "A repository named '$PROJECT_NAME' already exists."
             log_info "Please choose a different name."
             set -- "" # Clear the argument to force a prompt in the next iteration
@@ -40,7 +65,14 @@ open_url() {
 }
 
 # Get project name from argument or prompt
-get_project_name "$1"
+# Filter out any --skip arguments
+ARGS=()
+for arg in "$@"; do
+    if [[ ! "$arg" == --* ]]; then
+        ARGS+=("$arg")
+    fi
+done
+get_project_name "${ARGS[0]}"
 
 # Set variables
 BASE_DIR="$HOME/Documents/adder/100-concepts"
@@ -56,32 +88,54 @@ mkdir -p "$FULL_PATH"
 # Change to the new directory
 cd "$BASE_DIR" || exit
 
-# Create the GitHub repository
-log_step "Creating GitHub repository from template"
-gh repo create "$PROJECT_NAME" --template "$TEMPLATE" --private --clone
+# Create the GitHub repository if not skipped
+if [ "$SKIP_GITHUB" = false ]; then
+    log_section "GITHUB SETUP"
+    log_step "Creating GitHub repository from template"
+    gh repo create "$PROJECT_NAME" --template "$TEMPLATE" --private --clone
+else
+    log_info "Skipping GitHub repository creation"
+    # If we're skipping GitHub, we need to manually clone the template
+    log_step "Cloning template repository"
+    git clone "https://github.com/$TEMPLATE.git" "$PROJECT_NAME"
+    # Remove the .git directory to disconnect from the template repo
+    rm -rf "$PROJECT_NAME/.git"
+    # Initialize a new git repository
+    cd "$PROJECT_NAME" || exit
+    git init
+    git add .
+    git commit -m "Initial commit from template"
+    cd "$BASE_DIR" || exit
+fi
 
-# Display beautiful instructions for Vercel setup
-echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo -e "║                    ${CYAN}🚀 VERCEL SETUP GUIDE 🚀${RESET}                    ║"
-echo "╠════════════════════════════════════════════════════════════════╣"
-echo "║                                                                ║"
-echo -e "║  When prompted for vercel settings:                            ║"
-echo "║                                                                ║"
-echo -e "║  ${GREEN}1. Use the default settings for most options${RESET}                  ║"
-echo -e "║  ${RED}2. IMPORTANT: When asked about the directory to deploy,       ║"
-echo -e "║     specify 'webapp' instead of the default${RESET}                    ║"
-echo "║                                                                ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
-echo ""
+# Only show Vercel setup instructions and perform Vercel setup if not skipped
+if [ "$SKIP_VERCEL" = false ]; then
+    # Display beautiful instructions for Vercel setup
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo -e "║                    ${CYAN}🚀 VERCEL SETUP GUIDE 🚀${RESET}                    ║"
+    echo "╠════════════════════════════════════════════════════════════════╣"
+    echo "║                                                                ║"
+    echo -e "║  When prompted for vercel settings:                            ║"
+    echo "║                                                                ║"
+    echo -e "║  ${GREEN}1. Use the default settings for most options${RESET}                  ║"
+    echo -e "║  ${RED}2. IMPORTANT: When asked about the directory to deploy,       ║"
+    echo -e "║     specify 'webapp' instead of the default${RESET}                    ║"
+    echo "║                                                                ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo ""
 
-cd "$FULL_PATH" || exit
-log_section "VERCEL SETUP"
+    cd "$FULL_PATH" || exit
+    log_section "VERCEL SETUP"
 
-# Link to Vercel project directly specifying webapp as the root directory
-log_step "Linking to Vercel project with webapp as root directory"
-vercel link --project "$PROJECT_NAME"
-vercel git connect
+    # Link to Vercel project directly specifying webapp as the root directory
+    log_step "Linking to Vercel project with webapp as root directory"
+    vercel link --project "$PROJECT_NAME"
+    vercel git connect
+else
+    log_info "Skipping Vercel setup"
+    cd "$FULL_PATH" || exit
+fi
 
 # Set up Doppler project and populate with secrets from template
 log_section "DOPPLER SETUP"
@@ -157,7 +211,32 @@ if [[ "$setup_analytics" =~ ^[Yy]$ ]]; then
             
             # Create Fathom site
             log_step "Creating Fathom site"
-            site_id_output=$(create_fathom_site "$PROJECT_NAME")
+            
+            # Check if create-fathom-site.sh exists in the same directory as fathom-setup.sh
+            CREATE_SCRIPT_DIR=$(dirname "$FATHOM_SCRIPT")
+            CREATE_SCRIPT="$CREATE_SCRIPT_DIR/create-fathom-site.sh"
+            
+            if [ ! -f "$CREATE_SCRIPT" ]; then
+                log_error "Failed to find create-fathom-site.sh script at $CREATE_SCRIPT"
+                log_info "This script is required to create a Fathom Analytics site."
+                log_info "Please ensure create-fathom-site.sh is in the same directory as fathom-setup.sh."
+                continue
+            fi
+            
+            # Check if the script is executable
+            if [ ! -x "$CREATE_SCRIPT" ]; then
+                log_warning "create-fathom-site.sh is not executable. Attempting to make it executable..."
+                chmod +x "$CREATE_SCRIPT"
+                if [ ! -x "$CREATE_SCRIPT" ]; then
+                    log_error "Failed to make create-fathom-site.sh executable."
+                    log_info "Please run: chmod +x $CREATE_SCRIPT"
+                    continue
+                fi
+            fi
+            
+            # Run the create_fathom_site function with debug output
+            log_info "Executing create_fathom_site function with project name: $PROJECT_NAME"
+            site_id_output=$(create_fathom_site "$PROJECT_NAME" 2>&1)
             create_result=$?
             
             if [ $create_result -eq 0 ]; then
@@ -170,7 +249,12 @@ if [[ "$setup_analytics" =~ ^[Yy]$ ]]; then
                 
                 log_success "Fathom Analytics setup complete."
             else
-                log_error "Failed to create Fathom Analytics site. Please run ./fathom-setup.sh $PROJECT_NAME manually."
+                log_error "Failed to create Fathom Analytics site."
+                log_info "Error details:"
+                echo "$site_id_output" | sed 's/^/    /'
+                log_info "To debug, try running these commands manually:"
+                log_info "    cd $FULL_PATH"
+                log_info "    $FATHOM_SCRIPT $PROJECT_NAME"
             fi
         fi
     else
@@ -219,10 +303,14 @@ else
     open "$FULL_PATH"
 fi
 
-# Open websites
-log_section "OPENING WEBSITES"
-log_step "Opening required websites"
-open_websites
+# Only open websites if not skipped
+if [ "$SKIP_WEBSITES" = false ]; then
+    log_section "OPENING WEBSITES"
+    log_step "Opening required websites"
+    open_websites
+else
+    log_info "Skipping website opening as requested."
+fi
 
 log_section "✨ PROJECT SETUP COMPLETE ✨"
 echo -e "${GREEN}${BOLD}"
