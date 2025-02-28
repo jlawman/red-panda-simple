@@ -33,21 +33,7 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.6 }}
         >
-          <Button
-            variant="primary"
-            size="lg"
-            href="/docs"
-            className="group"
-          >
-            Get Started
-            <motion.span
-              className="ml-2 inline-block"
-              animate={{ x: [0, 4, 0] }}
-              transition={{ repeat: Infinity, duration: 1.5 }}
-            >
-              →
-            </motion.span>
-          </Button>
+     
         </motion.div>
       </motion.div>
 
