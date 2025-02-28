@@ -113,18 +113,51 @@ if [[ "$setup_analytics" =~ ^[Yy]$ ]]; then
     # Get the directory where the current script is located
     SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
     
+    # Try multiple possible locations for the fathom-setup.sh file
+    FATHOM_SCRIPT=""
+    
+    # Check in the same directory as this script
     if [ -f "$SCRIPT_DIR/fathom-setup.sh" ]; then
+        FATHOM_SCRIPT="$SCRIPT_DIR/fathom-setup.sh"
+    # Check in the setup directory relative to the current directory
+    elif [ -f "./setup/fathom-setup.sh" ]; then
+        FATHOM_SCRIPT="./setup/fathom-setup.sh"
+    # Check in the parent directory's setup folder
+    elif [ -f "../setup/fathom-setup.sh" ]; then
+        FATHOM_SCRIPT="../setup/fathom-setup.sh"
+    fi
+    
+    if [ -n "$FATHOM_SCRIPT" ]; then
         # Check if FATHOM_API_TOKEN is set
         if [ -z "$FATHOM_API_TOKEN" ]; then
             log_warning "FATHOM_API_TOKEN environment variable is not set."
-            log_info "Skipping Fathom Analytics setup."
-        else
+            
+            # Try to get the token from Doppler
+            if command -v doppler &> /dev/null; then
+                log_info "Attempting to get Fathom API token from Doppler..."
+                FATHOM_API_TOKEN=$(doppler secrets get FATHOM_API_KEY --plain 2>/dev/null || echo "")
+                
+                if [ -n "$FATHOM_API_TOKEN" ]; then
+                    log_success "Successfully retrieved Fathom API token from Doppler."
+                else
+                    log_info "Could not retrieve Fathom API token from Doppler."
+                    log_info "Skipping Fathom Analytics setup."
+                fi
+            else
+                log_info "Doppler CLI not found. Cannot retrieve Fathom API token."
+                log_info "Skipping Fathom Analytics setup."
+            fi
+        fi
+        
+        # Only proceed if we have a token
+        if [ -n "$FATHOM_API_TOKEN" ]; then
             # Source the Fathom setup script to use its functions
-            source "$SCRIPT_DIR/fathom-setup.sh"
+            log_step "Using Fathom setup script: $FATHOM_SCRIPT"
+            source "$FATHOM_SCRIPT"
             
             # Create Fathom site
             log_step "Creating Fathom site"
-            site_id_output=$(create_fathom_site "$PROJECT_NAME" "$FATHOM_API_TOKEN")
+            site_id_output=$(create_fathom_site "$PROJECT_NAME")
             create_result=$?
             
             if [ $create_result -eq 0 ]; then
@@ -137,11 +170,12 @@ if [[ "$setup_analytics" =~ ^[Yy]$ ]]; then
                 
                 log_success "Fathom Analytics setup complete."
             else
-                log_error "Failed to create Fathom Analytics site."
+                log_error "Failed to create Fathom Analytics site. Please run ./fathom-setup.sh $PROJECT_NAME manually."
             fi
         fi
     else
-        log_error "Fathom setup script not found. Please ensure fathom-setup.sh is in the same directory as this script."
+        log_error "Fathom setup script not found. Please ensure fathom-setup.sh is in the setup directory."
+        log_info "Looked in: $SCRIPT_DIR, ./setup/, and ../setup/"
     fi
 else
     log_info "Skipping Fathom Analytics setup as requested."
