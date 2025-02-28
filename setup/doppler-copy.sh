@@ -180,11 +180,15 @@ parse_args() {
         copy_doppler_secrets "$1" "$2"
         exit $?
     else
-        log_error "Invalid arguments."
+        log_error "Invalid arguments. Expected 2 arguments: source_project and target_project."
+        log_info "Got $# arguments: $@"
         show_help
         exit 1
     fi
 }
 
-# Main script execution
-parse_args "$@" 
+# Main script execution - only run if this script is executed directly
+# This prevents the parse_args from running when the script is sourced
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    parse_args "$@"
+fi 

@@ -1,42 +1,10 @@
 #!/bin/bash
 
-# Define color codes for beautiful logs
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-MAGENTA='\033[0;35m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-UNDERLINE='\033[4m'
-RESET='\033[0m'
-
-# Function for styled logging
-log_info() {
-    echo -e "${BLUE}ℹ️  ${BOLD}INFO:${RESET} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}✅ ${BOLD}SUCCESS:${RESET} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}⚠️  ${BOLD}WARNING:${RESET} $1"
-}
-
-log_error() {
-    echo -e "${RED}❌ ${BOLD}ERROR:${RESET} $1"
-}
-
-log_step() {
-    echo -e "\n${CYAN}🔷 ${BOLD}STEP:${RESET} ${UNDERLINE}$1${RESET}"
-}
-
-log_section() {
-    echo -e "\n${MAGENTA}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-    echo -e "${MAGENTA}${BOLD}  $1${RESET}"
-    echo -e "${MAGENTA}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}\n"
-}
+# Source utility scripts
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "$SCRIPT_DIR/utils/logging.sh"
+source "$SCRIPT_DIR/utils/browser.sh"
+source "$SCRIPT_DIR/utils/doppler-utils.sh"
 
 # Function to prompt for input if not provided
 get_project_name() {
@@ -70,99 +38,6 @@ open_url() {
         log_warning "Unable to open $1 automatically. Please visit it manually."
     fi
 }
-
-# Array of websites to open
-websites=(
-    "http://www.promptpromptprompt.com"
-    "https://adder-analytics-ltd.sentry.io/projects/new/" #Switch to manual installation of token on general settings page
-    #"https://app.usefathom.com/sites"
-    "https://dashboard.clerk.com/apps/new"
-    "https://clerk.com/docs/authentication/social-connections/google"
-    #"https://console.cloud.google.com/welcome?project=redpanda-438423"
-    "https://www.braintrust.dev/app/Adder"
-    #"https://fal.ai/dashboard/keys"
-    #"https://console.anthropic.com/settings/keys"
-    #"https://console.groq.com/keys"
-    #"https://platform.openai.com/api-keys"
-    #"https://favicon.io/favicon-converter/"
-    "https://crop-circle.imageonline.co/"
-    "https://vercel.com/josh-lawmans-projects" #"https://vercel.com/new/josh-lawmans-projects"
-    "https://ap.www.namecheap.com/"
-    #"https://tailwindui.com/components"
-    #"https://console.anthropic.com/dashboard"
-    #"https://uploadthing.com/dashboard/new"
-    #"https://app.pinecone.io/"
-    #"https://signin.aws.amazon.com/signin?client_id=arn%3Aaws%3Asignin%3A%3A%3Aconsole%2Fcanvas&redirect_uri=https%3A%2F%2Fconsole.aws.amazon.com%2Fconsole%2Fhome%3FhashArgs%3D%2523%26isauthcode%3Dtrue%26nc2%3Dh_ct%26src%3Dheader-signin%26state%3DhashArgsFromTB_eu-north-1_8229a3adbe919477&page=resolve&code_challenge=mm8BX2OcMycsNlGtPPF0Vkvb1zOsa76NjIJQa0PVZco&code_challenge_method=SHA-256"
-    #"https://dashboard.stripe.com/"
-)
-
-# Function to test Doppler setup
-test_doppler() {
-    log_section "DOPPLER TEST"
-    log_info "Testing Doppler functionality..."
-    if command -v doppler &> /dev/null; then
-        log_success "Doppler is installed."
-        
-        # Test project creation
-        TEST_PROJECT="test-doppler-project-$$"
-        log_step "Creating test project: $TEST_PROJECT"
-        doppler projects create "$TEST_PROJECT"
-        
-        # Test secrets operations
-        log_step "Testing secrets operations..."
-        echo '{"TEST_KEY":"test_value"}' > "/tmp/test_secrets_$$.json"
-        
-        # Import secrets to test project
-        doppler secrets import --project "$TEST_PROJECT" --config dev "/tmp/test_secrets_$$.json"
-        
-        # Verify secrets
-        log_info "Verifying secrets..."
-        doppler secrets get TEST_KEY --project "$TEST_PROJECT" --config dev
-        
-        # Show configuration
-        log_info "Current Doppler configuration:"
-        doppler configure
-        
-        # Clean up
-        log_step "Cleaning up test project..."
-        doppler projects delete "$TEST_PROJECT" --yes
-        rm "/tmp/test_secrets_$$.json"
-        
-        log_success "Doppler test completed successfully."
-    else
-        log_error "Doppler CLI not found. Please install Doppler CLI."
-        log_info "Visit https://docs.doppler.com/docs/install-cli for installation instructions."
-    fi
-}
-
-# Function to test Vercel setup
-test_vercel() {
-    log_section "VERCEL TEST"
-    log_info "Testing Vercel functionality..."
-    if command -v vercel &> /dev/null; then
-        log_success "Vercel is installed."
-        vercel --version
-        log_info "Vercel test completed."
-    else
-        log_error "Vercel CLI not found. Please install Vercel CLI."
-    fi
-}
-
-# Process command-line arguments for tests
-if [ "$1" = "--test-doppler" ]; then
-    test_doppler
-    exit 0
-elif [ "$1" = "--test-vercel" ]; then
-    test_vercel
-    exit 0
-elif [ "$1" = "--help" ]; then
-    echo -e "${CYAN}${BOLD}Usage:${RESET}"
-    echo -e "  ${BOLD}$0 [project_name]${RESET}         Create a new project"
-    echo -e "  ${BOLD}$0 --test-doppler${RESET}         Test Doppler functionality"
-    echo -e "  ${BOLD}$0 --test-vercel${RESET}          Test Vercel functionality"
-    echo -e "  ${BOLD}$0 --help${RESET}                 Show this help message"
-    exit 0
-fi
 
 # Get project name from argument or prompt
 get_project_name "$1"
@@ -211,78 +86,7 @@ vercel git connect
 # Set up Doppler project and populate with secrets from template
 log_section "DOPPLER SETUP"
 if command -v doppler &> /dev/null; then
-    # Create a new Doppler project
-    log_step "Creating Doppler project"
-    doppler projects create "$PROJECT_NAME"
-    
-    # Clone secrets from template project using doppler-copy.sh
-    TEMPLATE_PROJECT="red-panda-simple"
-    log_info "Copying secrets from $TEMPLATE_PROJECT to $PROJECT_NAME..."
-    
-    # Get the directory where the current script is located
-    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    
-    if [ -f "$SCRIPT_DIR/doppler-copy.sh" ]; then
-        # Source the Doppler copy script to use its functions
-        source "$SCRIPT_DIR/doppler-copy.sh"
-        
-        # Copy secrets from template project to new project
-        log_step "Copying Doppler secrets from template"
-        copy_doppler_secrets "$TEMPLATE_PROJECT" "$PROJECT_NAME"
-        
-        # Set up Doppler in the project directory
-        cd "$FULL_PATH" || exit
-        log_step "Configuring Doppler in project directory"
-        doppler setup --project "$PROJECT_NAME" --config dev
-        
-        # Verify setup was successful
-        log_info "Verifying Doppler setup..."
-        SETUP_INFO=$(doppler configure)
-        echo "$SETUP_INFO"
-        
-        log_success "Doppler project setup complete."
-    else
-        log_error "Doppler copy script not found. Please ensure doppler-copy.sh is in the same directory as this script."
-        log_info "Falling back to manual secret copying..."
-        
-        # Get all secrets from the template project
-        log_info "Fetching all secrets from template project..."
-        
-        # Get a list of all secret names from the template project
-        SECRET_NAMES=$(doppler secrets --project "$TEMPLATE_PROJECT" --config dev --only-names 2>/dev/null)
-        
-        if [ $? -eq 0 ] && [ -n "$SECRET_NAMES" ]; then
-            # Copy each secret one by one
-            echo "$SECRET_NAMES" | while read -r SECRET_NAME; do
-                if [ -n "$SECRET_NAME" ]; then
-                    # Get the secret value from the template project
-                    SECRET_VALUE=$(doppler secrets get "$SECRET_NAME" --project "$TEMPLATE_PROJECT" --config dev --plain 2>/dev/null)
-                    
-                    # If the secret exists and has a value, set it in the new project
-                    if [ -n "$SECRET_VALUE" ]; then
-                        log_info "Setting $SECRET_NAME..."
-                        doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config dev
-                        doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config staging
-                        doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config prod
-                    fi
-                fi
-            done
-            
-            # Set up Doppler in the project directory
-            cd "$FULL_PATH" || exit
-            log_step "Configuring Doppler in project directory"
-            doppler setup --project "$PROJECT_NAME" --config dev
-            
-            # Verify setup was successful
-            log_info "Verifying Doppler setup..."
-            SETUP_INFO=$(doppler configure)
-            echo "$SETUP_INFO"
-            
-            log_success "Doppler project setup complete."
-        else
-            log_error "Failed to fetch secrets from template project. Please check if the template project exists and you have access to it."
-        fi
-    fi
+    setup_doppler "$PROJECT_NAME" "$FULL_PATH" "red-panda-simple"
 else
     log_error "Doppler CLI not found. Please install Doppler CLI to set up secrets management."
     log_info "Visit https://docs.doppler.com/docs/install-cli for installation instructions."
@@ -384,10 +188,7 @@ fi
 # Open websites
 log_section "OPENING WEBSITES"
 log_step "Opening required websites"
-for site in "${websites[@]}"; do
-    open_url "$site"
-    log_info "Opened: $site"
-done
+open_websites
 
 log_section "✨ PROJECT SETUP COMPLETE ✨"
 echo -e "${GREEN}${BOLD}"
