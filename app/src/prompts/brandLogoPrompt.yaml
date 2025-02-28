@@ -1,0 +1,15 @@
+prompt: |
+  <brandAnswers>
+  ${userInput}
+  </brandAnswers>
+
+  <instructions>
+  Given this brand answers can you describe 3 different logo options for them (include specifics like aspect ratio, etc.). we'll be using these descriptions for image creation tools. Return your answers in description tags.
+  e.g. 
+  <description1>
+  </description1>
+  <description2>
+  </description2>
+  <description3>
+  </description3>
+  </instructions>
