@@ -1,18 +1,56 @@
 #!/bin/bash
 
+# Define color codes for beautiful logs
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+RESET='\033[0m'
+
+# Function for styled logging
+log_info() {
+    echo -e "${BLUE}ℹ️  ${BOLD}INFO:${RESET} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}✅ ${BOLD}SUCCESS:${RESET} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}⚠️  ${BOLD}WARNING:${RESET} $1"
+}
+
+log_error() {
+    echo -e "${RED}❌ ${BOLD}ERROR:${RESET} $1"
+}
+
+log_step() {
+    echo -e "\n${CYAN}🔷 ${BOLD}STEP:${RESET} ${UNDERLINE}$1${RESET}"
+}
+
+log_section() {
+    echo -e "\n${MAGENTA}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+    echo -e "${MAGENTA}${BOLD}  $1${RESET}"
+    echo -e "${MAGENTA}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}\n"
+}
+
 # Function to prompt for input if not provided
 get_project_name() {
     while true; do
         if [ -z "$1" ]; then
-            echo "Enter a project name:"
+            log_info "Enter a project name:"
             read PROJECT_NAME
         else
             PROJECT_NAME="$1"
         fi
 
         if gh repo view "jlawman/$PROJECT_NAME" &>/dev/null; then
-            echo "Error: A repository named '$PROJECT_NAME' already exists."
-            echo "Please choose a different name."
+            log_error "A repository named '$PROJECT_NAME' already exists."
+            log_info "Please choose a different name."
             set -- "" # Clear the argument to force a prompt in the next iteration
         else
             break
@@ -29,7 +67,7 @@ open_url() {
     elif command -v start &> /dev/null; then
         start "$1"
     else
-        echo "Unable to open $1 automatically. Please visit it manually."
+        log_warning "Unable to open $1 automatically. Please visit it manually."
     fi
 }
 
@@ -60,51 +98,53 @@ websites=(
 
 # Function to test Doppler setup
 test_doppler() {
-    echo "Testing Doppler functionality..."
+    log_section "DOPPLER TEST"
+    log_info "Testing Doppler functionality..."
     if command -v doppler &> /dev/null; then
-        echo "✅ Doppler is installed."
+        log_success "Doppler is installed."
         
         # Test project creation
         TEST_PROJECT="test-doppler-project-$$"
-        echo "Creating test project: $TEST_PROJECT"
+        log_step "Creating test project: $TEST_PROJECT"
         doppler projects create "$TEST_PROJECT"
         
         # Test secrets operations
-        echo "Testing secrets operations..."
+        log_step "Testing secrets operations..."
         echo '{"TEST_KEY":"test_value"}' > "/tmp/test_secrets_$$.json"
         
         # Import secrets to test project
         doppler secrets import --project "$TEST_PROJECT" --config dev "/tmp/test_secrets_$$.json"
         
         # Verify secrets
-        echo "Verifying secrets..."
+        log_info "Verifying secrets..."
         doppler secrets get TEST_KEY --project "$TEST_PROJECT" --config dev
         
         # Show configuration
-        echo "Current Doppler configuration:"
+        log_info "Current Doppler configuration:"
         doppler configure
         
         # Clean up
-        echo "Cleaning up test project..."
+        log_step "Cleaning up test project..."
         doppler projects delete "$TEST_PROJECT" --yes
         rm "/tmp/test_secrets_$$.json"
         
-        echo "✅ Doppler test completed successfully."
+        log_success "Doppler test completed successfully."
     else
-        echo "❌ Doppler CLI not found. Please install Doppler CLI."
-        echo "Visit https://docs.doppler.com/docs/install-cli for installation instructions."
+        log_error "Doppler CLI not found. Please install Doppler CLI."
+        log_info "Visit https://docs.doppler.com/docs/install-cli for installation instructions."
     fi
 }
 
 # Function to test Vercel setup
 test_vercel() {
-    echo "Testing Vercel functionality..."
+    log_section "VERCEL TEST"
+    log_info "Testing Vercel functionality..."
     if command -v vercel &> /dev/null; then
-        echo "Vercel is installed."
+        log_success "Vercel is installed."
         vercel --version
-        echo "Vercel test completed."
+        log_info "Vercel test completed."
     else
-        echo "Vercel CLI not found. Please install Vercel CLI."
+        log_error "Vercel CLI not found. Please install Vercel CLI."
     fi
 }
 
@@ -116,11 +156,11 @@ elif [ "$1" = "--test-vercel" ]; then
     test_vercel
     exit 0
 elif [ "$1" = "--help" ]; then
-    echo "Usage:"
-    echo "  $0 [project_name]         Create a new project"
-    echo "  $0 --test-doppler         Test Doppler functionality"
-    echo "  $0 --test-vercel          Test Vercel functionality"
-    echo "  $0 --help                 Show this help message"
+    echo -e "${CYAN}${BOLD}Usage:${RESET}"
+    echo -e "  ${BOLD}$0 [project_name]${RESET}         Create a new project"
+    echo -e "  ${BOLD}$0 --test-doppler${RESET}         Test Doppler functionality"
+    echo -e "  ${BOLD}$0 --test-vercel${RESET}          Test Vercel functionality"
+    echo -e "  ${BOLD}$0 --help${RESET}                 Show this help message"
     exit 0
 fi
 
@@ -132,50 +172,55 @@ BASE_DIR="$HOME/Documents/adder/100-concepts"
 FULL_PATH="$BASE_DIR"/$PROJECT_NAME
 TEMPLATE="jlawman/red-panda-simple"
 
+log_section "🚀 CREATING PROJECT: $PROJECT_NAME"
+
 # Create the directory
+log_step "Creating project directory"
 mkdir -p "$FULL_PATH"
 
 # Change to the new directory
 cd "$BASE_DIR" || exit
 
 # Create the GitHub repository
+log_step "Creating GitHub repository from template"
 gh repo create "$PROJECT_NAME" --template "$TEMPLATE" --private --clone
 
 # Display beautiful instructions for Vercel setup
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║                    🚀 VERCEL SETUP GUIDE 🚀                    ║"
+echo -e "║                    ${CYAN}🚀 VERCEL SETUP GUIDE 🚀${RESET}                    ║"
 echo "╠════════════════════════════════════════════════════════════════╣"
 echo "║                                                                ║"
-echo "║  When prompted for vercel settings:                            ║"
+echo -e "║  When prompted for vercel settings:                            ║"
 echo "║                                                                ║"
-echo "║  1. Use the default settings for most options                  ║"
-echo "║  2. IMPORTANT: When asked about the directory to deploy,       ║"
-echo "║     specify 'webapp' instead of the default                    ║"
+echo -e "║  ${GREEN}1. Use the default settings for most options${RESET}                  ║"
+echo -e "║  ${RED}2. IMPORTANT: When asked about the directory to deploy,       ║"
+echo -e "║     specify 'webapp' instead of the default${RESET}                    ║"
 echo "║                                                                ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
 cd "$FULL_PATH" || exit
-echo "Setting up Vercel..."
+log_section "VERCEL SETUP"
 
 # Link to Vercel project directly specifying webapp as the root directory
-echo "Linking to Vercel project with webapp as root directory..."
+log_step "Linking to Vercel project with webapp as root directory"
 vercel link --project "$PROJECT_NAME"
 vercel git connect
 
 # Set up Doppler project and populate with secrets from template
-echo "Setting up Doppler project..."
+log_section "DOPPLER SETUP"
 if command -v doppler &> /dev/null; then
     # Create a new Doppler project
+    log_step "Creating Doppler project"
     doppler projects create "$PROJECT_NAME"
     
     # Clone secrets from template project
     TEMPLATE_PROJECT="red-panda-simple"
-    echo "Copying secrets from $TEMPLATE_PROJECT to $PROJECT_NAME..."
+    log_info "Copying secrets from $TEMPLATE_PROJECT to $PROJECT_NAME..."
     
     # Get all secrets from the template project
-    echo "Fetching all secrets from template project..."
+    log_info "Fetching all secrets from template project..."
     
     # Get a list of all secret names from the template project
     SECRET_NAMES=$(doppler secrets --project "$TEMPLATE_PROJECT" --config dev --only-names 2>/dev/null)
@@ -189,7 +234,7 @@ if command -v doppler &> /dev/null; then
                 
                 # If the secret exists and has a value, set it in the new project
                 if [ -n "$SECRET_VALUE" ]; then
-                    echo "Setting $SECRET_NAME..."
+                    log_info "Setting $SECRET_NAME..."
                     doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config dev
                     doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config staging
                     doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config prod
@@ -199,50 +244,55 @@ if command -v doppler &> /dev/null; then
         
         # Set up Doppler in the project directory
         cd "$FULL_PATH" || exit
-        echo "Configuring Doppler in project directory..."
+        log_step "Configuring Doppler in project directory"
         doppler setup --project "$PROJECT_NAME" --config dev
         
         # Verify setup was successful
-        echo "Verifying Doppler setup..."
+        log_info "Verifying Doppler setup..."
         SETUP_INFO=$(doppler configure)
         echo "$SETUP_INFO"
         
-        echo "✅ Doppler project setup complete."
+        log_success "Doppler project setup complete."
     else
-        echo "❌ Failed to fetch secrets from template project. Please check if the template project exists and you have access to it."
+        log_error "Failed to fetch secrets from template project. Please check if the template project exists and you have access to it."
     fi
 else
-    echo "Doppler CLI not found. Please install Doppler CLI to set up secrets management."
-    echo "Visit https://docs.doppler.com/docs/install-cli for installation instructions."
+    log_error "Doppler CLI not found. Please install Doppler CLI to set up secrets management."
+    log_info "Visit https://docs.doppler.com/docs/install-cli for installation instructions."
 fi
 
 # Ask if user wants to track analytics
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║                    📊 ANALYTICS SETUP 📊                       ║"
+echo -e "║                    ${CYAN}📊 ANALYTICS SETUP 📊${RESET}                       ║"
 echo "╠════════════════════════════════════════════════════════════════╣"
 echo "║                                                                ║"
-echo "║  Would you like to set up Fathom Analytics for this project?   ║"
-echo "║  This will create a Fathom site and add the site ID to Doppler ║"
+echo -e "║  Would you like to set up Fathom Analytics for this project?   ║"
+echo -e "║  This will create a Fathom site and add the site ID to Doppler ║"
 echo "║                                                                ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
-read -p "Set up analytics? (Y/n): " setup_analytics
+read -p "$(echo -e "${YELLOW}Set up analytics? (Y/n):${RESET} ")" setup_analytics
 setup_analytics=${setup_analytics:-Y}  # Default to Y if empty
 
 # Set up Fathom Analytics site and add to Doppler if user wants to
 if [[ "$setup_analytics" =~ ^[Yy]$ ]]; then
-    echo "Setting up Fathom Analytics site..."
-    if [ -f "./fathom-setup.sh" ]; then
+    log_section "FATHOM ANALYTICS SETUP"
+    
+    # Get the directory where the current script is located
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    
+    if [ -f "$SCRIPT_DIR/fathom-setup.sh" ]; then
         # Check if FATHOM_API_TOKEN is set
         if [ -z "$FATHOM_API_TOKEN" ]; then
-            echo "⚠️ FATHOM_API_TOKEN environment variable is not set."
-            echo "Skipping Fathom Analytics setup."
+            log_warning "FATHOM_API_TOKEN environment variable is not set."
+            log_info "Skipping Fathom Analytics setup."
         else
             # Source the Fathom setup script to use its functions
-            source ./fathom-setup.sh
+            source "$SCRIPT_DIR/fathom-setup.sh"
             
             # Create Fathom site
+            log_step "Creating Fathom site"
             site_id_output=$(create_fathom_site "$PROJECT_NAME" "$FATHOM_API_TOKEN")
             create_result=$?
             
@@ -251,22 +301,24 @@ if [[ "$setup_analytics" =~ ^[Yy]$ ]]; then
                 SITE_ID=$(echo "$site_id_output" | tail -n 1)
                 
                 # Add site ID to Doppler
+                log_step "Adding site ID to Doppler"
                 add_to_doppler "$PROJECT_NAME" "$SITE_ID" "$FATHOM_API_TOKEN"
                 
-                echo "✅ Fathom Analytics setup complete."
+                log_success "Fathom Analytics setup complete."
             else
-                echo "❌ Failed to create Fathom Analytics site."
+                log_error "Failed to create Fathom Analytics site."
             fi
         fi
     else
-        echo "❌ Fathom setup script not found. Please ensure fathom-setup.sh is in the same directory."
+        log_error "Fathom setup script not found. Please ensure fathom-setup.sh is in the same directory as this script."
     fi
 else
-    echo "Skipping Fathom Analytics setup as requested."
+    log_info "Skipping Fathom Analytics setup as requested."
 fi
 
 # Install npm dependencies in the app folder
-echo "Installing npm dependencies..."
+log_section "DEPENDENCIES INSTALLATION"
+log_step "Installing npm dependencies"
 cd "$FULL_PATH/webapp" || exit
 npm i
 cd "$FULL_PATH" || exit
@@ -281,31 +333,45 @@ cd "$FULL_PATH" || exit
 #     ]
 #   }
 
+log_section "OPENING PROJECT"
 # Open the repository in GitHub Desktop
 if command -v github &> /dev/null; then
     github "$FULL_PATH"
-    echo "Repository opened in GitHub Desktop."
+    log_success "Repository opened in GitHub Desktop."
 else
-    echo "GitHub Desktop command not found. Please ensure GitHub Desktop is installed and the CLI tool is in your PATH."
-    echo "You can open the project manually in GitHub Desktop."
+    log_warning "GitHub Desktop command not found. Please ensure GitHub Desktop is installed and the CLI tool is in your PATH."
+    log_info "You can open the project manually in GitHub Desktop."
 fi
 
 # Check if Cursor is installed and in PATH
 if command -v cursor &> /dev/null; then
     cursor "$FULL_PATH"
-    echo "Project $PROJECT_NAME has been created and opened in Cursor."
+    log_success "Project $PROJECT_NAME has been created and opened in Cursor."
 else
-    echo "Cursor command not found. Please ensure Cursor is installed and in your PATH."
-    echo "You can open the project manually at: $FULL_PATH"
+    log_warning "Cursor command not found. Please ensure Cursor is installed and in your PATH."
+    log_info "You can open the project manually at: $FULL_PATH"
     # Attempt to open the directory in Finder
     open "$FULL_PATH"
 fi
 
 # Open websites
-echo "Opening websites..."
+log_section "OPENING WEBSITES"
+log_step "Opening required websites"
 for site in "${websites[@]}"; do
     open_url "$site"
-    echo "Opened: $site"
+    log_info "Opened: $site"
 done
 
-echo "Project setup complete."
+log_section "✨ PROJECT SETUP COMPLETE ✨"
+echo -e "${GREEN}${BOLD}"
+echo "  _____ _                 _____    ____        _ _     _ "
+echo " |_   _(_)_ __ ___   ___|_   _|__| __ ) _   _(_) | __| |"
+echo "   | | | | '_ \` _ \ / _ \ | |/ _ \  _ \| | | | | |/ _\` |"
+echo "   | | | | | | | | |  __/ | | (_) | |_) | |_| | | | (_| |"
+echo "   |_| |_|_| |_| |_|\___| |_|\___/|____/ \__,_|_|_|\__,_|"
+echo "                                                           "
+echo -e "${RESET}"
+echo -e "${CYAN}${BOLD}Project Name:${RESET} ${PROJECT_NAME}"
+echo -e "${CYAN}${BOLD}Location:${RESET} ${FULL_PATH}"
+echo -e "${CYAN}${BOLD}Template:${RESET} ${TEMPLATE}"
+echo ""
