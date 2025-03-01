@@ -120,7 +120,7 @@ if [ "$SKIP_VERCEL" = false ]; then
     echo "║                                                                ║"
     echo -e "║  ${GREEN}1. Use the default settings for most options${RESET}                  ║"
     echo -e "║  ${RED}2. IMPORTANT: When asked about the directory to deploy,       ║"
-    echo -e "║     specify 'webapp' instead of the default${RESET}                    ║"
+    echo -e "║     specify 'frontend' instead of the default${RESET}                ║"
     echo "║                                                                ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo ""
@@ -128,8 +128,8 @@ if [ "$SKIP_VERCEL" = false ]; then
     cd "$FULL_PATH" || exit
     log_section "VERCEL SETUP"
 
-    # Link to Vercel project directly specifying webapp as the root directory
-    log_step "Linking to Vercel project with webapp as root directory"
+    # Link to Vercel project directly specifying frontend as the root directory
+    log_step "Linking to Vercel project with frontend as root directory"
     vercel link --project "$PROJECT_NAME"
     vercel git connect
 else
@@ -268,7 +268,7 @@ fi
 # Install npm dependencies in the app folder
 log_section "DEPENDENCIES INSTALLATION"
 log_step "Installing npm dependencies"
-cd "$FULL_PATH/webapp" || exit
+cd "$FULL_PATH/frontend" || exit
 npm i
 cd "$FULL_PATH" || exit
 
