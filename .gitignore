@@ -39,3 +39,5 @@ next-env.d.ts
 /app/src/app/scripts
 /webapp/node_modules
 /webapp/.next
+/frontend/.next
+/frontend/node_modules
