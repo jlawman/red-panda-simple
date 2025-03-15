@@ -22,6 +22,9 @@ interface PerplexityUsage {
   prompt_tokens: number;
   completion_tokens: number;
   total_tokens: number;
+  citation_tokens?: number;
+  num_search_queries?: number;
+  reasoning_tokens?: number;
 }
 
 interface PerplexityResponse {
@@ -35,6 +38,12 @@ interface PerplexityResponse {
   choices: PerplexityChoice[];
 }
 
+// Define interface for the renderContent return type
+interface RenderContentResult {
+  formattedContent: JSX.Element;
+  thinking: string;
+}
+
 export default function PerplexityDemo() {
   const [query, setQuery] = useState('');
   const [response, setResponse] = useState<PerplexityResponse | null>(null);
@@ -42,6 +51,7 @@ export default function PerplexityDemo() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchType, setSearchType] = useState<'regular' | 'deep'>('regular');
+  const [showThinking, setShowThinking] = useState(false);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -50,6 +60,7 @@ export default function PerplexityDemo() {
     setError('');
     setResponse(null);
     setRawResponse('');
+    setShowThinking(false);
     
     const endpoint = searchType === 'regular' 
       ? '/api/perplexity-search' 
@@ -79,12 +90,38 @@ export default function PerplexityDemo() {
     }
   };
 
+  // Function to extract thinking content from <think> tags
+  const extractThinkingContent = (content: string): { thinking: string, response: string } => {
+    const thinkRegex = /<think>([\s\S]*?)<\/think>/;
+    const match = content.match(thinkRegex);
+    
+    if (match && match[1]) {
+      // Return both the thinking content and the cleaned response
+      return {
+        thinking: match[1].trim(),
+        response: content.replace(thinkRegex, '').trim()
+      };
+    }
+    
+    // If no thinking tags found, return original content
+    return {
+      thinking: '',
+      response: content
+    };
+  };
+
   // Function to render markdown content with basic formatting and clickable citations
-  const renderContent = (content: string, citations?: string[]) => {
-    if (!content) return <div>No content available</div>;
+  const renderContent = (content: string, citations?: string[]): RenderContentResult => {
+    if (!content) return {
+      formattedContent: <div>No content available</div>,
+      thinking: ''
+    };
+    
+    // Extract thinking content if present
+    const { thinking, response } = extractThinkingContent(content);
     
     // First, handle bold text formatting
-    let formattedContent = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    let formattedContent = response.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     
     // Then, make citation numbers clickable if citations are available
     if (citations && citations.length > 0) {
@@ -101,7 +138,10 @@ export default function PerplexityDemo() {
     // Handle newlines
     formattedContent = formattedContent.replace(/\n/g, '<br />');
     
-    return <div dangerouslySetInnerHTML={{ __html: formattedContent }} />;
+    return {
+      formattedContent: <div dangerouslySetInnerHTML={{ __html: formattedContent }} />,
+      thinking: thinking
+    };
   };
 
   return (
@@ -187,10 +227,44 @@ export default function PerplexityDemo() {
             
             <div className="mb-4">
               <h3 className="text-lg font-medium mb-2">Answer:</h3>
-              <div className="p-4 bg-gray-50 rounded-md">
-                {response.choices && response.choices[0] && 
-                  renderContent(response.choices[0].message.content, response.citations)}
-              </div>
+              {response.choices && response.choices[0] && (() => {
+                const content = response.choices[0].message.content;
+                const { formattedContent, thinking } = renderContent(content, response.citations);
+                
+                return (
+                  <>
+                    <div className="p-4 bg-gray-50 rounded-md">
+                      {formattedContent}
+                    </div>
+                    
+                    {thinking && (
+                      <div className="mt-4">
+                        <button
+                          onClick={() => setShowThinking(!showThinking)}
+                          className="flex items-center text-sm text-gray-600 hover:text-gray-900"
+                        >
+                          <svg 
+                            className={`w-4 h-4 mr-1 transition-transform ${showThinking ? 'rotate-90' : ''}`} 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24" 
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                          {showThinking ? 'Hide thinking process' : 'Show thinking process'}
+                        </button>
+                        
+                        {showThinking && (
+                          <div className="mt-2 p-4 bg-yellow-50 border border-yellow-200 rounded-md text-sm whitespace-pre-wrap">
+                            {thinking}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
             
             {response.citations && response.citations.length > 0 && (
@@ -230,6 +304,9 @@ export default function PerplexityDemo() {
               <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                 <div>Model: <span className="font-medium">{response.model}</span></div>
                 <div>Tokens: <span className="font-medium">{response.usage?.total_tokens || 'N/A'}</span></div>
+                {response.usage?.reasoning_tokens && (
+                  <div>Reasoning Tokens: <span className="font-medium">{response.usage.reasoning_tokens}</span></div>
+                )}
                 <div>Time: <span className="font-medium">{new Date(response.created * 1000).toLocaleString()}</span></div>
               </div>
             </div>
@@ -246,4 +323,4 @@ export default function PerplexityDemo() {
       )}
     </div>
   );
-} 
+}
