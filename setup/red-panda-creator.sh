@@ -33,7 +33,7 @@ show_help() {
 SKIP_GITHUB=false
 SKIP_VERCEL=false
 SKIP_WEBSITES=false
-INTERACTIVE_MODE=false
+INTERACTIVE_MODE=true
 
 # Parse command line arguments
 for arg in "$@"; do
