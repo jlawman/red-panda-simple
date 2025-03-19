@@ -13,8 +13,8 @@ setup_doppler() {
     # Add the project name itself as a secret
     log_step "Adding PROJECT_NAME as a secret"
     doppler secrets set "PROJECT_NAME=$PROJECT_NAME" --project "$PROJECT_NAME" --config dev
-    doppler secrets set "PROJECT_NAME=$PROJECT_NAME" --project "$PROJECT_NAME" --config staging
-    doppler secrets set "PROJECT_NAME=$PROJECT_NAME" --project "$PROJECT_NAME" --config prod
+    doppler secrets set "PROJECT_NAME=$PROJECT_NAME" --project "$PROJECT_NAME" --config stg
+    doppler secrets set "PROJECT_NAME=$PROJECT_NAME" --project "$PROJECT_NAME" --config prd
     
     # Clone secrets from template project using doppler-copy.sh
     log_info "Copying secrets from $TEMPLATE_PROJECT to $PROJECT_NAME..."
@@ -44,47 +44,9 @@ setup_doppler() {
         
         log_success "Doppler project setup complete."
     else
-        # Fallback to manual secret copying
-        log_warning "Doppler copy script not found at $PARENT_DIR/doppler-copy.sh"
-        log_info "Falling back to manual secret copying..."
-        
-        # Get all secrets from the template project
-        log_info "Fetching all secrets from template project..."
-        
-        # Get a list of all secret names from the template project
-        SECRET_NAMES=$(doppler secrets --project "$TEMPLATE_PROJECT" --config dev --only-names 2>/dev/null)
-        
-        if [ $? -eq 0 ] && [ -n "$SECRET_NAMES" ]; then
-            # Copy each secret one by one
-            echo "$SECRET_NAMES" | while read -r SECRET_NAME; do
-                if [ -n "$SECRET_NAME" ]; then
-                    # Get the secret value from the template project
-                    SECRET_VALUE=$(doppler secrets get "$SECRET_NAME" --project "$TEMPLATE_PROJECT" --config dev --plain 2>/dev/null)
-                    
-                    # If the secret exists and has a value, set it in the new project
-                    if [ -n "$SECRET_VALUE" ]; then
-                        log_info "Setting $SECRET_NAME..."
-                        doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config dev
-                        doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config staging
-                        doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config prod
-                    fi
-                fi
-            done
-            
-            # Set up Doppler in the project directory
-            cd "$FULL_PATH" || exit
-            log_step "Configuring Doppler in project directory"
-            doppler setup --project "$PROJECT_NAME" --config dev
-            
-            # Verify setup was successful
-            log_info "Verifying Doppler setup..."
-            SETUP_INFO=$(doppler configure)
-            echo "$SETUP_INFO"
-            
-            log_success "Doppler project setup complete."
-        else
-            log_error "Failed to fetch secrets from template project. Please check if the template project exists and you have access to it."
-        fi
+        log_error "Doppler copy script not found at $PARENT_DIR/doppler-copy.sh"
+        log_error "Cannot continue without doppler-copy.sh - please ensure it exists."
+        return 1
     fi
 }
 
