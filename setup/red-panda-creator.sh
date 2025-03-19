@@ -233,8 +233,8 @@ if [ "$SKIP_VERCEL" = false ]; then
 
     # Link to Vercel project directly specifying frontend as the root directory
     log_step "Linking to Vercel project with frontend as root directory"
-    vercel link --project "$PROJECT_NAME" --yes
-    vercel git connect --yes
+    vercel link --project "$PROJECT_NAME"
+    vercel git connect
     
     # Update progress if in interactive mode
     if [ "$INTERACTIVE_MODE" = true ]; then
