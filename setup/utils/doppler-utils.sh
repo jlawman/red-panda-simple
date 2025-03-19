@@ -13,8 +13,8 @@ setup_doppler() {
     # Add the project name itself as a secret
     log_step "Adding PROJECT_NAME as a secret"
     doppler secrets set "PROJECT_NAME=$PROJECT_NAME" --project "$PROJECT_NAME" --config dev
-    doppler secrets set "PROJECT_NAME=$PROJECT_NAME" --project "$PROJECT_NAME" --config staging
-    doppler secrets set "PROJECT_NAME=$PROJECT_NAME" --project "$PROJECT_NAME" --config prod
+    doppler secrets set "PROJECT_NAME=$PROJECT_NAME" --project "$PROJECT_NAME" --config stg
+    doppler secrets set "PROJECT_NAME=$PROJECT_NAME" --project "$PROJECT_NAME" --config prd
     
     # Clone secrets from template project using doppler-copy.sh
     log_info "Copying secrets from $TEMPLATE_PROJECT to $PROJECT_NAME..."
@@ -65,8 +65,8 @@ setup_doppler() {
                     if [ -n "$SECRET_VALUE" ]; then
                         log_info "Setting $SECRET_NAME..."
                         doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config dev
-                        doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config staging
-                        doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config prod
+                        doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config stg
+                        doppler secrets set "$SECRET_NAME=$SECRET_VALUE" --project "$PROJECT_NAME" --config prd
                     fi
                 fi
             done
