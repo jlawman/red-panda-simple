@@ -5,15 +5,41 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$SCRIPT_DIR/utils/logging.sh"
 source "$SCRIPT_DIR/utils/browser.sh"
 source "$SCRIPT_DIR/utils/doppler-utils.sh"
+source "$SCRIPT_DIR/utils/interactive.sh"
 
-# Initialize skip flags
+# Function to display help message
+show_help() {
+    echo "Red Panda Creator - A setup script for Red Panda projects"
+    echo ""
+    echo "Usage: $0 [options] [project_name]"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help             Show this help message"
+    echo "  -i, --interactive      Use interactive mode with TUI (requires whiptail or dialog)"
+    echo "  --skip-github          Skip GitHub repository creation"
+    echo "  --skip-vercel          Skip Vercel project setup"
+    echo "  --skip-websites        Skip opening related websites"
+    echo "  --skip                 Skip all optional components (GitHub, Vercel, websites)"
+    echo ""
+    echo "Example:"
+    echo "  $0 my-project          Create a project named 'my-project'"
+    echo "  $0 -i                  Run in interactive mode and prompt for project name"
+    echo "  $0 --skip-github my-project   Create 'my-project' without GitHub integration"
+    echo ""
+    exit 0
+}
+
+# Initialize variables and flags
 SKIP_GITHUB=false
 SKIP_VERCEL=false
 SKIP_WEBSITES=false
+INTERACTIVE_MODE=false
 
 # Parse command line arguments
 for arg in "$@"; do
-  if [[ "$arg" == "--skip" ]]; then
+  if [[ "$arg" == "--help" ]] || [[ "$arg" == "-h" ]]; then
+    show_help
+  elif [[ "$arg" == "--skip" ]]; then
     SKIP_GITHUB=true
     SKIP_VERCEL=true
     SKIP_WEBSITES=true
@@ -27,6 +53,14 @@ for arg in "$@"; do
   elif [[ "$arg" == "--skip-websites" ]]; then
     SKIP_WEBSITES=true
     log_info "Skipping website opening as requested"
+  elif [[ "$arg" == "--interactive" ]] || [[ "$arg" == "-i" ]]; then
+    if is_interactive_available; then
+      INTERACTIVE_MODE=true
+      log_info "Using interactive mode"
+    else
+      log_warning "Interactive mode requested but whiptail/dialog not available. Falling back to command line."
+      log_info "To use interactive mode, install whiptail: 'apt-get install whiptail' or 'brew install ncurses'"
+    fi
   fi
 done
 
@@ -34,24 +68,37 @@ done
 get_project_name() {
     while true; do
         if [ -z "$1" ] || [[ "$1" == --* ]]; then
-            log_info "Enter a project name (no spaces allowed):"
-            read PROJECT_NAME
+            if [ "$INTERACTIVE_MODE" = true ]; then
+                PROJECT_NAME=$(get_input "Project Setup" "Enter a project name (no spaces allowed):" "")
+                [ $? -ne 0 ] && exit 1  # User cancelled
+            else
+                log_info "Enter a project name (no spaces allowed):"
+                read PROJECT_NAME
+            fi
         else
             PROJECT_NAME="$1"
         fi
         
         # Check for spaces in the project name
         if [[ "$PROJECT_NAME" == *" "* ]]; then
-            log_error "Project name '$PROJECT_NAME' contains spaces."
-            log_info "Please enter a name without spaces."
+            if [ "$INTERACTIVE_MODE" = true ]; then
+                show_message "Error" "Project name '$PROJECT_NAME' contains spaces.\nPlease enter a name without spaces."
+            else
+                log_error "Project name '$PROJECT_NAME' contains spaces."
+                log_info "Please enter a name without spaces."
+            fi
             set -- "" # Clear the argument to force a prompt in the next iteration
             continue
         fi
 
         # Only check for existing repo if we're not skipping GitHub
         if [ "$SKIP_GITHUB" = false ] && gh repo view "jlawman/$PROJECT_NAME" &>/dev/null; then
-            log_error "A repository named '$PROJECT_NAME' already exists."
-            log_info "Please choose a different name."
+            if [ "$INTERACTIVE_MODE" = true ]; then
+                show_message "Error" "A repository named '$PROJECT_NAME' already exists.\nPlease choose a different name."
+            else
+                log_error "A repository named '$PROJECT_NAME' already exists."
+                log_info "Please choose a different name."
+            fi
             set -- "" # Clear the argument to force a prompt in the next iteration
         else
             break
@@ -89,6 +136,32 @@ TEMPLATE="jlawman/red-panda-simple"
 
 log_section "🚀 CREATING PROJECT: $PROJECT_NAME"
 
+# If in interactive mode, show welcome screen and configuration options
+if [ "$INTERACTIVE_MODE" = true ]; then
+    show_welcome
+    
+    # Configuration menu
+    OPTIONS=(
+        "github" "Setup GitHub repository" 
+        "vercel" "Setup Vercel deployment" 
+        "websites" "Open related websites after setup"
+    )
+    
+    SELECTED=$(show_checklist "Configuration" "Select which components to include:" \
+        "github" "GitHub repository setup" "ON" \
+        "vercel" "Vercel deployment setup" "ON" \
+        "websites" "Open websites after setup" "ON")
+    
+    # Parse selected options
+    [[ "$SELECTED" != *"github"* ]] && SKIP_GITHUB=true
+    [[ "$SELECTED" != *"vercel"* ]] && SKIP_VERCEL=true
+    [[ "$SELECTED" != *"websites"* ]] && SKIP_WEBSITES=true
+    
+    # Show progress updates as we go
+    PROGRESS=0
+    show_progress "Setup Progress" $PROGRESS "Creating project directory..."
+fi
+
 # Create the directory
 log_step "Creating project directory"
 mkdir -p "$FULL_PATH"
@@ -96,11 +169,23 @@ mkdir -p "$FULL_PATH"
 # Change to the new directory
 cd "$BASE_DIR" || exit
 
+# Update progress if in interactive mode
+if [ "$INTERACTIVE_MODE" = true ]; then
+    PROGRESS=10
+    show_progress "Setup Progress" $PROGRESS "Setting up GitHub repository..."
+fi
+
 # Create the GitHub repository if not skipped
 if [ "$SKIP_GITHUB" = false ]; then
     log_section "GITHUB SETUP"
     log_step "Creating GitHub repository from template"
     gh repo create "$PROJECT_NAME" --template "$TEMPLATE" --private --clone
+    
+    # Update progress if in interactive mode
+    if [ "$INTERACTIVE_MODE" = true ]; then
+        PROGRESS=25
+        show_progress "Setup Progress" $PROGRESS "GitHub repository created..."
+    fi
 else
     log_info "Skipping GitHub repository creation"
     # If we're skipping GitHub, we need to manually clone the template
@@ -114,24 +199,34 @@ else
     git add .
     git commit -m "Initial commit from template"
     cd "$BASE_DIR" || exit
+    
+    # Update progress if in interactive mode
+    if [ "$INTERACTIVE_MODE" = true ]; then
+        PROGRESS=25
+        show_progress "Setup Progress" $PROGRESS "Template repository cloned..."
+    fi
 fi
 
 # Only show Vercel setup instructions and perform Vercel setup if not skipped
 if [ "$SKIP_VERCEL" = false ]; then
     # Display beautiful instructions for Vercel setup
-    echo ""
-    echo "╔════════════════════════════════════════════════════════════════╗"
-    echo -e "║                    ${CYAN}🚀 VERCEL SETUP GUIDE 🚀${RESET}                    ║"
-    echo "╠════════════════════════════════════════════════════════════════╣"
-    echo "║                                                                ║"
-    echo -e "║  When prompted for vercel settings:                            ║"
-    echo "║                                                                ║"
-    echo -e "║  ${GREEN}1. Use the default settings for most options${RESET}                  ║"
-    echo -e "║  ${RED}2. IMPORTANT: When asked about the directory to deploy,       ║"
-    echo -e "║     specify 'frontend' instead of the default${RESET}                ║"
-    echo "║                                                                ║"
-    echo "╚════════════════════════════════════════════════════════════════╝"
-    echo ""
+    if [ "$INTERACTIVE_MODE" = true ]; then
+        show_message "Vercel Setup Guide" "When prompted for Vercel settings:\n\n1. Use the default settings for most options\n\n2. IMPORTANT: When asked about the directory to deploy, specify 'frontend' instead of the default" 15 70
+    else
+        echo ""
+        echo "╔════════════════════════════════════════════════════════════════╗"
+        echo -e "║                    ${CYAN}🚀 VERCEL SETUP GUIDE 🚀${RESET}                    ║"
+        echo "╠════════════════════════════════════════════════════════════════╣"
+        echo "║                                                                ║"
+        echo -e "║  When prompted for vercel settings:                            ║"
+        echo -e "║                                                                ║"
+        echo -e "║  ${GREEN}1. Use the default settings for most options${RESET}                  ║"
+        echo -e "║  ${RED}2. IMPORTANT: When asked about the directory to deploy,       ║"
+        echo -e "║     specify 'frontend' instead of the default${RESET}                ║"
+        echo "║                                                                ║"
+        echo "╚════════════════════════════════════════════════════════════════╝"
+        echo ""
+    fi
 
     cd "$FULL_PATH" || exit
     log_section "VERCEL SETUP"
@@ -140,50 +235,95 @@ if [ "$SKIP_VERCEL" = false ]; then
     log_step "Linking to Vercel project with frontend as root directory"
     vercel link --project "$PROJECT_NAME"
     vercel git connect
+    
+    # Update progress if in interactive mode
+    if [ "$INTERACTIVE_MODE" = true ]; then
+        PROGRESS=40
+        show_progress "Setup Progress" $PROGRESS "Vercel project linked..."
+    fi
 else
     log_info "Skipping Vercel setup"
     cd "$FULL_PATH" || exit
+    
+    # Update progress if in interactive mode
+    if [ "$INTERACTIVE_MODE" = true ]; then
+        PROGRESS=40
+        show_progress "Setup Progress" $PROGRESS "Proceeding with Doppler setup..."
+    fi
 fi
 
 # Set up Doppler project and populate with secrets from template
 log_section "DOPPLER SETUP"
 if command -v doppler &> /dev/null; then
     setup_doppler "$PROJECT_NAME" "$FULL_PATH" "red-panda-simple"
+    
+    # Update progress if in interactive mode
+    if [ "$INTERACTIVE_MODE" = true ]; then
+        PROGRESS=60
+        show_progress "Setup Progress" $PROGRESS "Doppler setup completed..."
+    fi
 else
     log_error "Doppler CLI not found. Please install Doppler CLI to set up secrets management."
     log_info "Visit https://docs.doppler.com/docs/install-cli for installation instructions."
+    
+    # Update progress if in interactive mode
+    if [ "$INTERACTIVE_MODE" = true ]; then
+        PROGRESS=60
+        show_progress "Setup Progress" $PROGRESS "Doppler setup skipped (not installed)..."
+    fi
 fi
 
 # Push Doppler secrets to Vercel if requested
 if [ "$SKIP_VERCEL" = false ]; then
     log_section "PUSHING SECRETS TO VERCEL"
-    log_info "Would you like to push Doppler secrets to Vercel?"
-    read -p "$(echo -e "${YELLOW}Push secrets to Vercel? (Y/n):${RESET} ")" push_secrets
-    push_secrets=${push_secrets:-Y}  # Default to Y if empty
+    
+    if [ "$INTERACTIVE_MODE" = true ]; then
+        ask_yes_no "Vercel Secrets" "Would you like to push Doppler secrets to Vercel?" "yes"
+        push_secrets=$?  # 0 for yes, 1 for no
+        push_secrets=$((1-push_secrets))  # Invert to match our script logic (1=yes, 0=no)
+    else
+        log_info "Would you like to push Doppler secrets to Vercel?"
+        read -p "$(echo -e "${YELLOW}Push secrets to Vercel? (Y/n):${RESET} ")" push_secrets_input
+        push_secrets_input=${push_secrets_input:-Y}  # Default to Y if empty
+        [[ "$push_secrets_input" =~ ^[Yy]$ ]] && push_secrets=1 || push_secrets=0
+    fi
 
-    if [[ "$push_secrets" =~ ^[Yy]$ ]]; then
+    if [ $push_secrets -eq 1 ]; then
         push_doppler_to_vercel "$PROJECT_NAME" "dev"
+        
+        # Update progress if in interactive mode and push secrets to Vercel
+        if [ "$INTERACTIVE_MODE" = true ]; then
+            PROGRESS=70
+            show_progress "Setup Progress" $PROGRESS "Doppler secrets pushed to Vercel..."
+        fi
     else
         log_info "Skipping secrets push to Vercel."
     fi
 fi
 
 # Ask if user wants to track analytics
-echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo -e "║                    ${CYAN}📊 ANALYTICS SETUP 📊${RESET}                       ║"
-echo "╠════════════════════════════════════════════════════════════════╣"
-echo "║                                                                ║"
-echo -e "║  Would you like to set up Fathom Analytics for this project?   ║"
-echo -e "║  This will create a Fathom site and add the site ID to Doppler ║"
-echo "║                                                                ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
-echo ""
-read -p "$(echo -e "${YELLOW}Set up analytics? (Y/n):${RESET} ")" setup_analytics
-setup_analytics=${setup_analytics:-Y}  # Default to Y if empty
+if [ "$INTERACTIVE_MODE" = true ]; then
+    ask_yes_no "Analytics Setup" "Would you like to set up Fathom Analytics for this project?\nThis will create a Fathom site and add the site ID to Doppler." "yes"
+    setup_analytics=$?
+    setup_analytics=$((1-setup_analytics))  # Invert to match our script logic
+else
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo -e "║                    ${CYAN}📊 ANALYTICS SETUP 📊${RESET}                       ║"
+    echo "╠════════════════════════════════════════════════════════════════╣"
+    echo "║                                                                ║"
+    echo -e "║  Would you like to set up Fathom Analytics for this project?   ║"
+    echo -e "║  This will create a Fathom site and add the site ID to Doppler ║"
+    echo "║                                                                ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "$(echo -e "${YELLOW}Set up analytics? (Y/n):${RESET} ")" setup_analytics_input
+    setup_analytics_input=${setup_analytics_input:-Y}  # Default to Y if empty
+    [[ "$setup_analytics_input" =~ ^[Yy]$ ]] && setup_analytics=1 || setup_analytics=0
+fi
 
 # Set up Fathom Analytics site and add to Doppler if user wants to
-if [[ "$setup_analytics" =~ ^[Yy]$ ]]; then
+if [ $setup_analytics -eq 1 ]; then
     log_section "FATHOM ANALYTICS SETUP"
     
     # Get the directory where the current script is located
@@ -287,22 +427,37 @@ else
     log_info "Skipping Fathom Analytics setup as requested."
 fi
 
+# Update progress if in interactive mode and set up Fathom Analytics
+if [ "$INTERACTIVE_MODE" = true ] && [ $setup_analytics -eq 1 ]; then
+    PROGRESS=80
+    show_progress "Setup Progress" $PROGRESS "Analytics setup completed..."
+elif [ "$INTERACTIVE_MODE" = true ]; then
+    PROGRESS=80
+    show_progress "Setup Progress" $PROGRESS "Proceeding with dependency installation..."
+fi
+
 # Install npm dependencies in the app folder
 log_section "DEPENDENCIES INSTALLATION"
 log_step "Installing npm dependencies"
+
+if [ "$INTERACTIVE_MODE" = true ]; then
+    # Show a message that this might take a while
+    show_message "Dependencies" "Now installing npm dependencies...\n\nThis may take a few minutes. Please wait."
+    
+    # Update progress
+    PROGRESS=85
+    show_progress "Setup Progress" $PROGRESS "Installing dependencies..."
+fi
+
 cd "$FULL_PATH/frontend" || exit
 npm i
 cd "$FULL_PATH" || exit
 
-#vercel.json starting point - but broke things
-# {
-#     "builds": [
-#       {
-#         "src": "app/**/*",
-#         "use": "@vercel/next"
-#       }
-#     ]
-#   }
+# Update progress if in interactive mode after npm install
+if [ "$INTERACTIVE_MODE" = true ]; then
+    PROGRESS=95
+    show_progress "Setup Progress" $PROGRESS "Dependencies installed, finalizing..."
+fi
 
 log_section "OPENING PROJECT"
 # Open the repository in GitHub Desktop
@@ -334,16 +489,28 @@ else
     log_info "Skipping website opening as requested."
 fi
 
-log_section "✨ PROJECT SETUP COMPLETE ✨"
-echo -e "${GREEN}${BOLD}"
-echo "  _____ _                 _____    ____        _ _     _ "
-echo " |_   _(_)_ __ ___   ___|_   _|__| __ ) _   _(_) | __| |"
-echo "   | | | | '_ \` _ \ / _ \ | |/ _ \  _ \| | | | | |/ _\` |"
-echo "   | | | | | | | | |  __/ | | (_) | |_) | |_| | | | (_| |"
-echo "   |_| |_|_| |_| |_|\___| |_|\___/|____/ \__,_|_|_|\__,_|"
-echo "                                                           "
-echo -e "${RESET}"
-echo -e "${CYAN}${BOLD}Project Name:${RESET} ${PROJECT_NAME}"
-echo -e "${CYAN}${BOLD}Location:${RESET} ${FULL_PATH}"
-echo -e "${CYAN}${BOLD}Template:${RESET} ${TEMPLATE}"
-echo ""
+# Update progress if in interactive mode just before completion
+if [ "$INTERACTIVE_MODE" = true ]; then
+    PROGRESS=100
+    show_progress "Setup Progress" $PROGRESS "Setup complete!"
+    sleep 1  # Give the user a moment to see 100%
+fi
+
+# Show completion message
+if [ "$INTERACTIVE_MODE" = true ]; then
+    show_completion "$PROJECT_NAME" "$FULL_PATH"
+else
+    log_section "✨ PROJECT SETUP COMPLETE ✨"
+    echo -e "${GREEN}${BOLD}"
+    echo "  _____ _                 _____    ____        _ _     _ "
+    echo " |_   _(_)_ __ ___   ___|_   _|__| __ ) _   _(_) | __| |"
+    echo "   | | | | '_ \` _ \ / _ \ | |/ _ \  _ \| | | | | |/ _\` |"
+    echo "   | | | | | | | | |  __/ | | (_) | |_) | |_| | | | (_| |"
+    echo "   |_| |_|_| |_| |_|\___| |_|\___/|____/ \__,_|_|_|\__,_|"
+    echo "                                                           "
+    echo -e "${RESET}"
+    echo -e "${CYAN}${BOLD}Project Name:${RESET} ${PROJECT_NAME}"
+    echo -e "${CYAN}${BOLD}Location:${RESET} ${FULL_PATH}"
+    echo -e "${CYAN}${BOLD}Template:${RESET} ${TEMPLATE}"
+    echo ""
+fi
