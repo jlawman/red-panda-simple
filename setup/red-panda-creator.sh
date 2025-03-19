@@ -33,23 +33,9 @@ show_help() {
 SKIP_GITHUB=false
 SKIP_VERCEL=false
 SKIP_WEBSITES=false
-INTERACTIVE_MODE=false
+INTERACTIVE_MODE=true
 
-# Check if running in a proper terminal that supports interactive features
-if [ -t 0 ] && [ -t 1 ] && [ -t 2 ]; then
-    # Only enable interactive mode if we have the necessary tools
-    if is_interactive_available; then
-        INTERACTIVE_MODE=true
-        log_info "Interactive mode enabled (using whiptail/dialog)"
-    else
-        log_warning "Interactive mode not available - whiptail/dialog not found"
-        log_info "To use interactive mode, install whiptail: 'apt-get install whiptail' or 'brew install ncurses'"
-    fi
-else
-    log_warning "Not running in an interactive terminal - using command line mode"
-fi
-
-# Parse command line arguments (this can override the auto-detection above)
+# Parse command line arguments
 for arg in "$@"; do
   if [[ "$arg" == "--help" ]] || [[ "$arg" == "-h" ]]; then
     show_help
@@ -67,52 +53,31 @@ for arg in "$@"; do
   elif [[ "$arg" == "--skip-websites" ]]; then
     SKIP_WEBSITES=true
     log_info "Skipping website opening as requested"
-  elif [[ "$arg" == "--no-interactive" ]]; then
-    INTERACTIVE_MODE=false
-    log_info "Interactive mode disabled by user request"
   elif [[ "$arg" == "--interactive" ]] || [[ "$arg" == "-i" ]]; then
     if is_interactive_available; then
       INTERACTIVE_MODE=true
-      log_info "Interactive mode explicitly enabled"
+      log_info "Using interactive mode"
     else
       log_warning "Interactive mode requested but whiptail/dialog not available. Falling back to command line."
       log_info "To use interactive mode, install whiptail: 'apt-get install whiptail' or 'brew install ncurses'"
-      INTERACTIVE_MODE=false
     fi
   fi
 done
-
-# Before we proceed, let's verify our interactive functions are working
-if [ "$INTERACTIVE_MODE" = true ]; then
-    log_step "Testing interactive mode..."
-    if ! test_interactive_mode; then
-        log_warning "Interactive mode test failed. Falling back to command line mode."
-        INTERACTIVE_MODE=false
-    else
-        log_success "Interactive mode is working correctly."
-        clear  # Clear the screen for a clean interactive experience
-    fi
-fi
 
 # Function to prompt for input if not provided
 get_project_name() {
     while true; do
         if [ -z "$1" ] || [[ "$1" == --* ]]; then
             if [ "$INTERACTIVE_MODE" = true ]; then
-                # Make sure we're using a clean prompt for interactive mode
                 PROJECT_NAME=$(get_input "Project Setup" "Enter a project name (no spaces allowed):" "")
                 [ $? -ne 0 ] && exit 1  # User cancelled
             else
-                # Non-interactive mode - simple prompt
                 log_info "Enter a project name (no spaces allowed):"
                 read PROJECT_NAME
             fi
         else
             PROJECT_NAME="$1"
         fi
-        
-        # Trim whitespace from PROJECT_NAME
-        PROJECT_NAME=$(echo "$PROJECT_NAME" | xargs)
         
         # Check for spaces in the project name
         if [[ "$PROJECT_NAME" == *" "* ]]; then
