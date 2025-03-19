@@ -34,10 +34,18 @@ done
 get_project_name() {
     while true; do
         if [ -z "$1" ] || [[ "$1" == --* ]]; then
-            log_info "Enter a project name:"
+            log_info "Enter a project name (no spaces allowed):"
             read PROJECT_NAME
         else
             PROJECT_NAME="$1"
+        fi
+        
+        # Check for spaces in the project name
+        if [[ "$PROJECT_NAME" == *" "* ]]; then
+            log_error "Project name '$PROJECT_NAME' contains spaces."
+            log_info "Please enter a name without spaces."
+            set -- "" # Clear the argument to force a prompt in the next iteration
+            continue
         fi
 
         # Only check for existing repo if we're not skipping GitHub
