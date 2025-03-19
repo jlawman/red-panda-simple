@@ -209,37 +209,66 @@ fi
 
 # Only show Vercel setup instructions and perform Vercel setup if not skipped
 if [ "$SKIP_VERCEL" = false ]; then
-    # Display beautiful instructions for Vercel setup
-    if [ "$INTERACTIVE_MODE" = true ]; then
-        show_message "Vercel Setup Guide" "When prompted for Vercel settings:\n\n1. Use the default settings for most options\n\n2. IMPORTANT: When asked about the directory to deploy, specify 'frontend' instead of the default" 15 70
-    else
-        echo ""
-        echo "╔════════════════════════════════════════════════════════════════╗"
-        echo -e "║                    ${CYAN}🚀 VERCEL SETUP GUIDE 🚀${RESET}                    ║"
-        echo "╠════════════════════════════════════════════════════════════════╣"
-        echo "║                                                                ║"
-        echo -e "║  When prompted for vercel settings:                            ║"
-        echo -e "║                                                                ║"
-        echo -e "║  ${GREEN}1. Use the default settings for most options${RESET}                  ║"
-        echo -e "║  ${RED}2. IMPORTANT: When asked about the directory to deploy,       ║"
-        echo -e "║     specify 'frontend' instead of the default${RESET}                ║"
-        echo "║                                                                ║"
-        echo "╚════════════════════════════════════════════════════════════════╝"
-        echo ""
-    fi
-
     cd "$FULL_PATH" || exit
     log_section "VERCEL SETUP"
 
-    # Link to Vercel project directly specifying frontend as the root directory
-    log_step "Linking to Vercel project with frontend as root directory"
-    vercel link --project "$PROJECT_NAME"
-    vercel git connect
+    # Create Vercel configuration
+    log_step "Creating Vercel configuration for frontend directory"
+    
+    # Create a .vercel directory with project configuration
+    mkdir -p "$FULL_PATH/.vercel"
+    
+    # Generate a project ID - not ideal but will be replaced by Vercel
+    PROJECT_ID=$(openssl rand -hex 16)
+    
+    # Create project.json with required configurations
+    cat > "$FULL_PATH/.vercel/project.json" << EOF
+{
+  "projectId": "$PROJECT_ID",
+  "orgId": null,
+  "settings": {
+    "framework": "nextjs",
+    "devCommand": "npm run dev",
+    "installCommand": "npm install",
+    "buildCommand": "npm run build",
+    "outputDirectory": ".next",
+    "rootDirectory": "frontend",
+    "directoryListing": false
+  }
+}
+EOF
+    
+    log_info "Pre-configured Vercel to use frontend as the root directory"
+
+    # Link to Vercel project
+    log_step "Linking to Vercel project"
+    cd "$FULL_PATH" || exit
+    vercel link --confirm
+    
+    # Set up Git integration
+    log_step "Setting up Git integration with Vercel"
+    vercel git connect --confirm
+
+    # Create vercel.json in root to ensure consistent configuration
+    cat > "$FULL_PATH/vercel.json" << EOF
+{
+  "rootDirectory": "frontend"
+}
+EOF
+    
+    # Deploy to ensure settings are applied (only if project setup is complete)
+    if [ -d "$FULL_PATH/frontend" ] && [ -f "$FULL_PATH/frontend/package.json" ]; then
+        log_step "Making initial deployment to finalize settings"
+        cd "$FULL_PATH" || exit
+        vercel --yes
+    else
+        log_info "Skipping initial deployment - frontend directory not fully set up yet"
+    fi
     
     # Update progress if in interactive mode
     if [ "$INTERACTIVE_MODE" = true ]; then
         PROGRESS=40
-        show_progress "Setup Progress" $PROGRESS "Vercel project linked..."
+        show_progress "Setup Progress" $PROGRESS "Vercel project configured with frontend as root..."
     fi
 else
     log_info "Skipping Vercel setup"
