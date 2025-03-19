@@ -33,15 +33,20 @@ show_help() {
 SKIP_GITHUB=false
 SKIP_VERCEL=false
 SKIP_WEBSITES=false
+INTERACTIVE_MODE=false
 
-# Simple direct check for interactive tools
-if which whiptail >/dev/null 2>&1 || which dialog >/dev/null 2>&1; then
-    INTERACTIVE_MODE=true
-    log_info "Interactive mode enabled (using whiptail/dialog)"
+# Check if running in a proper terminal that supports interactive features
+if [ -t 0 ] && [ -t 1 ] && [ -t 2 ]; then
+    # Only enable interactive mode if we have the necessary tools
+    if is_interactive_available; then
+        INTERACTIVE_MODE=true
+        log_info "Interactive mode enabled (using whiptail/dialog)"
+    else
+        log_warning "Interactive mode not available - whiptail/dialog not found"
+        log_info "To use interactive mode, install whiptail: 'apt-get install whiptail' or 'brew install ncurses'"
+    fi
 else
-    INTERACTIVE_MODE=false
-    log_warning "Interactive mode not available - whiptail/dialog not found"
-    log_info "To use interactive mode, install whiptail: 'apt-get install whiptail' or 'brew install ncurses'"
+    log_warning "Not running in an interactive terminal - using command line mode"
 fi
 
 # Parse command line arguments (this can override the auto-detection above)
@@ -80,7 +85,7 @@ done
 # Before we proceed, let's verify our interactive functions are working
 if [ "$INTERACTIVE_MODE" = true ]; then
     log_step "Testing interactive mode..."
-    if ! which whiptail >/dev/null 2>&1 && ! which dialog >/dev/null 2>&1; then
+    if ! test_interactive_mode; then
         log_warning "Interactive mode test failed. Falling back to command line mode."
         INTERACTIVE_MODE=false
     else
