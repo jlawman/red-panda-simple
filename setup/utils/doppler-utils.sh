@@ -213,4 +213,37 @@ debug_doppler_copy() {
     fi
     
     return $RESULT
+}
+
+# Function to push Doppler secrets to Vercel project
+push_doppler_to_vercel() {
+    local PROJECT_NAME="$1"
+    local DOPPLER_CONFIG="${2:-dev}"  # Default to dev if not specified
+    
+    log_section "PUSHING DOPPLER SECRETS TO VERCEL"
+    log_info "Syncing secrets from Doppler project '$PROJECT_NAME' ($DOPPLER_CONFIG) to Vercel..."
+    
+    # Create a temporary file to store secrets
+    local TEMP_FILE=$(mktemp)
+    
+    # Download secrets from Doppler
+    log_step "Downloading secrets from Doppler"
+    doppler secrets download --project "$PROJECT_NAME" --config "$DOPPLER_CONFIG" --format json > "$TEMP_FILE"
+    
+    # Parse and add each secret to Vercel
+    log_step "Adding secrets to Vercel environments"
+    cat "$TEMP_FILE" | jq -r 'to_entries | .[] | select(.key | startswith("DOPPLER_") | not) | "\(.key)=\(.value)"' | while read -r secret; do
+        key=$(echo $secret | cut -d= -f1)
+        value=$(echo $secret | cut -d= -f2-)
+        
+        log_info "Adding secret $key to Vercel environments..."
+        vercel env add "$key" development <<< "$value"
+        vercel env add "$key" preview <<< "$value"
+        vercel env add "$key" production <<< "$value"
+    done
+    
+    # Clean up
+    rm "$TEMP_FILE"
+    
+    log_success "Secrets from Doppler have been added to Vercel project"
 } 

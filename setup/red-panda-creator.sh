@@ -154,6 +154,20 @@ else
     log_info "Visit https://docs.doppler.com/docs/install-cli for installation instructions."
 fi
 
+# Push Doppler secrets to Vercel if requested
+if [ "$SKIP_VERCEL" = false ]; then
+    log_section "PUSHING SECRETS TO VERCEL"
+    log_info "Would you like to push Doppler secrets to Vercel?"
+    read -p "$(echo -e "${YELLOW}Push secrets to Vercel? (Y/n):${RESET} ")" push_secrets
+    push_secrets=${push_secrets:-Y}  # Default to Y if empty
+
+    if [[ "$push_secrets" =~ ^[Yy]$ ]]; then
+        push_doppler_to_vercel "$PROJECT_NAME" "dev"
+    else
+        log_info "Skipping secrets push to Vercel."
+    fi
+fi
+
 # Ask if user wants to track analytics
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
