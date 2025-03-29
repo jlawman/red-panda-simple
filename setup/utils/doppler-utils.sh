@@ -188,6 +188,9 @@ push_doppler_to_vercel() {
     # Create a temporary file to store secrets
     local TEMP_FILE=$(mktemp)
     
+    # Make sure we clean up the temp file when the function exits, regardless of success or failure
+    trap "rm -f $TEMP_FILE" EXIT
+    
     # Download secrets from Doppler
     log_step "Downloading secrets from Doppler"
     doppler secrets download --project "$PROJECT_NAME" --config "$DOPPLER_CONFIG" --format json > "$TEMP_FILE"
@@ -204,8 +207,7 @@ push_doppler_to_vercel() {
         vercel env add "$key" production <<< "$value"
     done
     
-    # Clean up
-    rm "$TEMP_FILE"
+    # Clean up is now handled by the trap
     
     log_success "Secrets from Doppler have been added to Vercel project"
 } 
