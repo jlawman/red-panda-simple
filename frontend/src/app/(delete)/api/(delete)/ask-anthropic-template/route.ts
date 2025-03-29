@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Anthropic } from '@anthropic-ai/sdk';
-import { loadPrompt } from '@/utils/promptLoader';
+import { loadPrompt } from '@/app/(delete)/utils/promptLoader';
 import { logger } from '@/lib/braintrustlogger';
 
 const anthropic = new Anthropic({

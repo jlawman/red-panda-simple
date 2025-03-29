@@ -27,3 +27,13 @@ bash -c 'cd ~/Documents/adder/"100 templates"/red-panda-simple && ./setup/red-pa
 npx drizzle-kit generate
 npx drizzle-kit push
 ```
+
+## Vercel Deployment
+
+This template is pre-configured for Vercel deployment with the following settings:
+
+- The `/frontend` directory is set as the root directory
+- Next.js framework settings are pre-configured
+- Build, development, and installation commands are pre-configured
+
+During project setup, the configuration will be automatically detected and used.

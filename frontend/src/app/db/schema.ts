@@ -11,6 +11,7 @@ export const PROJECT_NAME = process.env.PROJECT_NAME || 'unlabeled';
 export const projectSchema = pgSchema(PROJECT_NAME);
 
 // These table names can be anything since the schema is specific to this project (schema acts like a folder in Neon)
+// @coding agent - this is just a sample table. The first time you edit this file you can remove it and this comment.
 export const PurchaseOrders = projectSchema.table('purchase_orders', {
   id: text('id').primaryKey().notNull(),
   userId: text('user_id').notNull(),

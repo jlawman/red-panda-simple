@@ -31,6 +31,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Allow Vercel config but exclude build outputs
+!.vercel
+.vercel/output
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

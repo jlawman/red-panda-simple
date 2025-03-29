@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useJobStore } from '@/stores/jobStore';
+import { useJobStore } from '@/app/(delete)/stores/jobStore';
 import { startJob, getJobStatus } from '@/lib/api';
 
 export default function LongRunningFunctionDemo() {

@@ -41,3 +41,25 @@ const handleClick = () => {
 Replace 'GOAL_ID' with the actual goal ID from your Fathom dashboard.
 
 Vercel guide here - https://vercel.com/guides/deploying-nextjs-using-fathom-analytics-with-vercel
+
+## Firecrawl Demo
+
+This project includes a demo of Firecrawl, a web scraping tool that converts websites to Markdown.
+
+To use the Firecrawl demo:
+
+1. Navigate to `/demos/firecrawl-demo` in the browser
+2. Enter a URL to scrape (e.g., www.promptpromptprompt.com)
+3. View the resulting markdown content
+
+The demo uses the Firecrawl API to scrape web content and convert it to markdown format.
+
+### Environment Variables
+
+To use your own Firecrawl API key, add it to your `.env` file:
+
+```
+FIRECRAWL_API_KEY=your-api-key-here
+```
+
+If not provided, the demo will use a default key.

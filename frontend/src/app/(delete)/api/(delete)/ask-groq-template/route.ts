@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Groq from "groq-sdk";
-import { loadPrompt } from '@/utils/promptLoader';
+import { loadPrompt } from '@/app/(delete)/utils/promptLoader';
 import { logger } from '@/lib/braintrustlogger';
 
 const groq = new Groq({
