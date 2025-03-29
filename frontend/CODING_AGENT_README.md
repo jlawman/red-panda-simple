@@ -21,4 +21,11 @@ To push the schema to the DB, once you updated it, run:
 doppler run -- npx drizzle-kit push
 
 
+## Directory Structure
+We're in a monorepo template and it is most likely that you will just need to make changes in the frontend folder. We sometimes build backend components, but for most projects on Next.js we just work in the frontend folder building all API routes and components.
+
+## Misc
+For Next.js we use 14 and the app router.
+
+
 
