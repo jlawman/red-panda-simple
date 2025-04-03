@@ -1,4 +1,6 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
 
 const termsMarkdown = `
@@ -8,7 +10,7 @@ const termsMarkdown = `
 
 The privacy of your data—and it is your data, not ours!—is a big deal to us. In this policy, we lay out: what data we collect and why; how your data is handled; and your rights with respect to your data. We promise we never sell your data: never have, never will.
 
-This policy applies to all products built and maintained by Adder Analytics Ltd including all versions of Red Panda. 
+This policy applies to all products built and maintained by Adder Analytics Ltd including all versions of Voice To Invoice. 
 
 This policy applies to our handling of information about site visitors, prospective customers, and customers and authorized users (in relation to their procurement of the services and management of their relationship with Adder Analytics). We refer collectively to these categories of individuals as "you" throughout this policy.
 
@@ -24,11 +26,11 @@ We&apos;ll never sell your personal information to third parties, and we won&apo
 
 ### Billing information
 
-If you sign up for a paid Adder Analytics product, you will be asked to provide your payment information. Credit card information is submitted directly to our payment processor and doesn’t hit Adder Analytics servers. 
+If you sign up for a paid Adder Analytics product, you will be asked to provide your payment information. Credit card information is submitted directly to our payment processor and doesn't hit Adder Analytics servers. 
 
 ### Product interactions
 
-We store on our servers the content that you upload or receive or maintain in your Red Panda account. This is so that we can offer our services and so that you can download the content related to your translations. This content is usually stored for 7 days. 
+We store on our servers the content that you upload or receive or maintain in your Voice To Invoice account. This is so that we can offer our services and so that you can download the content related to your translations. This content is usually stored for 7 days. 
 
 
 ### Voluntary correspondence
@@ -70,7 +72,16 @@ We may update this policy as needed to comply with relevant regulations and refl
 `;
 
 export default function TermsPage() {
-  const termsContent = marked(termsMarkdown);
+  const [termsContent, setTermsContent] = useState('');
+  
+  useEffect(() => {
+    const parseMarkdown = async () => {
+      const content = await marked(termsMarkdown);
+      setTermsContent(content);
+    };
+    
+    parseMarkdown();
+  }, []);
 
   return (
     <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
